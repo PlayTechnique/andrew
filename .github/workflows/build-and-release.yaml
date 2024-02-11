@@ -7,6 +7,10 @@ on:
 jobs:
   build-and-release-tag:
     runs-on: ubuntu-22.04
+    env:
+      DOCKERIMAGE: {{ playtechnique }}/andrew:${{ github.run_attempt }}
+    #Don't run this build on forks
+    if: ${{ contains('playtechnique/andrew', github.repository ) }}
     steps:
       - name: "checkout"
         uses: actions/checkout@v3
@@ -30,12 +34,6 @@ jobs:
         with:
           ref: ${{ steps.previoustag.outputs.tag }}
 
-      - name: "compile binary linux-amd64/macos amd64 & arm64"
-        run: |
-          GOOS=linux GOARCH=amd64 go build -o andrew-linux
-          GOOS=darwin GOARCH=amd64 go build -o andrew-mac-amd64
-          GOOS=darwin GOARCH=arm64 go build -o andrew-mac-arm64
-
       - name: Release
         id: create_release
         uses: actions/create-release@v1
@@ -44,6 +42,22 @@ jobs:
         with:
           tag_name: ${{ steps.previoustag.outputs.tag }}
           release_name: Release ${{ steps.previoustag.outputs.tag }}
+
+      - name: "compile binary linux-amd64/macos amd64 & arm64"
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o andrew-linux
+          GOOS=darwin GOARCH=amd64 go build -o andrew-mac-amd64
+          GOOS=darwin GOARCH=arm64 go build -o andrew-mac-arm64
+
+      - name: Build and Publish the Docker image
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: ${{ env.DOCKERIMAGE }}
+
+      - name: Create docker manifest
+        run: |
+          echo ${{ env.DOCKERIMAGE }} >> manifest.txt
 
       - name: Upload linux
         id: upload-linux-asset
@@ -77,3 +91,14 @@ jobs:
           asset_path: ./andrew-mac-arm64
           asset_name: andrew-mac-arm64
           asset_content_type: binary
+
+      - name: Upload docker manifest
+        id: upload-docker-manifest
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./docker-manifest.txt
+          asset_name: docker-manifest
+          asset_content_type: text
