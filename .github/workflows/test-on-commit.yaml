@@ -1,0 +1,22 @@
+name: 'Test'
+
+# **What it does**: Runs Jinx' go tests
+# **Why we have it**: Validate it builds, runs the tests
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: "checkout"
+        uses: actions/checkout@v3
+        with:
+          ref: {{ env.GITHUB_REF" }}
+      - name: "test andrew"
+        run: |
+          go test -v ./...
+
+
