@@ -30,11 +30,11 @@ jobs:
         with:
           ref: ${{ steps.previoustag.outputs.tag }}
 
-      - name: "compile binary"
+      - name: "compile binary linux-amd64/macos amd64 & arm64"
         run: |
-          GOOS=linux go build -o andrew-linux
-          GOOS=darwin GOARCH=amd-64 go build -o andrew-mac-amd64
-          GOOS=darwin GOARCH=arm-64 go build -o andrew-mac-arm64
+          GOOS=linux GOARCH=amd64 go build -o andrew-linux
+          GOOS=darwin GOARCH=amd64 go build -o andrew-mac-amd64
+          GOOS=darwin GOARCH=arm64 go build -o andrew-mac-arm64
 
       - name: Release
         id: create_release
