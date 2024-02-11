@@ -1,9 +1,32 @@
 package andrew
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 )
+
+func Serve() {
+	contentRoot := os.Args[0]
+
+	if _, err := os.Stat(contentRoot); os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Usage: andrew <content directory>\n")
+		os.Exit(1)
+	}
+
+	server := Server{ContentRoot: contentRoot, HttpServer: http.FileServer(http.Dir(contentRoot))}
+
+	// Setup route
+	http.HandleFunc("/", server.ServeUp)
+
+	// Start HTTP server
+	fmt.Println("Serving content on http://0.0.0.0:8080")
+	if err := http.ListenAndServe("0.0.0.0:8080", nil); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to start server: %s\n", err)
+		os.Exit(1)
+	}
+
+}
 
 type Server struct {
 	ContentRoot string
