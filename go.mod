@@ -1,3 +1,3 @@
-module github.com/playtechnique/andrew
+module github.com/PlayTechnique/andrew
 
 go 1.21

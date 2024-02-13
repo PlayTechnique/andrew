@@ -1,7 +1,7 @@
 package andrew_test
 
 import (
-	"github.com/playtechnique/andrew"
+	"github.com/PlayTechnique/andrew"
 	"io"
 	"net/http"
 	"net/http/httptest"

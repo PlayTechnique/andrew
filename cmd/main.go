@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/playtechnique/andrew"
+	"github.com/PlayTechnique/andrew"
 )
 
 func main() {
