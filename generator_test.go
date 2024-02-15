@@ -43,7 +43,7 @@ func TestGenerateLinkToOneFile(t *testing.T) {
 	os.WriteFile(absPath+"/main.css", []byte{}, os.ModePerm)
 	os.WriteFile(absPath+"/main.js", []byte{}, os.ModePerm)
 
-	expected := []string{"<a href=website/somearticle.html>somearticle</a>"}
+	expected := []string{"<a href=somearticle.html>somearticle</a>"}
 
 	err = os.Chdir(testDir)
 	if err != nil {

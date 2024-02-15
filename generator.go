@@ -33,21 +33,19 @@ func GetLinks(contentRoot string) ([]string, error) {
 
 		htmlSuffix := ".html"
 		if filepath.Ext(path) == htmlSuffix {
-			title, err := getTitleFromHTMLFile(path)
+			// foo/bar/bam.html becomes [foo, bar, bam.html]
+			filenamePortions := strings.Split(path, "/")
+			// path is contentroot/path/to/file.html. It needs to become
+			// path/to/file.html
+			link := strings.Join(filenamePortions[1:], "/")
 
+			title, err := getTitle(path, filenamePortions, htmlSuffix)
 			if err != nil {
-				if err.Error() == "no title element found" {
-					filenames := strings.Split(path, "/")
-					filename := filenames[len(filenames)-1]
-					indexFileName := filename[:len(filename)-len(htmlSuffix)]
-					title = indexFileName
-				} else {
-					return err
-				}
+				return err
 			}
 
 			// TODO: extract the formatting into its own function.
-			path = fmt.Sprintf("<a href=%s>%s</a>", path, title)
+			path = fmt.Sprintf("<a href=%s>%s</a>", link, title)
 
 			html = append(html, path)
 		}
@@ -58,10 +56,25 @@ func GetLinks(contentRoot string) ([]string, error) {
 	return html, err
 }
 
-// getTitleFromHTMLFile returns the content of the "title" tag or an empty string.
+func getTitle(path string, filenamePortions []string, htmlSuffix string) (string, error) {
+	title, err := titleFromHTMLTitleElement(path)
+
+	if err != nil {
+		if err.Error() != "no title element found" {
+			return "", err
+		}
+		// filename is bam.html
+		filename := filenamePortions[len(filenamePortions)-1]
+		// title is bam
+		title = filename[:len(filename)-len(htmlSuffix)]
+	}
+	return title, nil
+}
+
+// titleFromHTMLTitleElement returns the content of the "title" tag or an empty string.
 // The error value "no title element found" is returned if title is not discovered
 // or is set to an empty string.
-func getTitleFromHTMLFile(filePath string) (string, error) {
+func titleFromHTMLTitleElement(filePath string) (string, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return "", err
