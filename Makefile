@@ -1,2 +1,5 @@
 build:
-	go build -o cmd/andrew ./cmd/main.go
+	cd cmd/andrew && go build
+
+run:
+	./cmd/andrew/andrew

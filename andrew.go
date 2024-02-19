@@ -4,10 +4,30 @@ import (
 	"fmt"
 	"golang.org/x/net/html"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+type page string
+
+func ListenAndServe(address string) error {
+	pages := map[string]page{
+		"pageone": "this is page one",
+		"pagetwo": "this is page two",
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		title := strings.TrimPrefix(r.RequestURI, "/")
+		fmt.Fprint(w, pages[title])
+	})
+
+	err := http.ListenAndServe(address, mux)
+
+	return err
+}
 
 // GetLinks is a function that walks a directory starting at contentRoot and
 // gets a list of the html files inside that are not index.html. These
