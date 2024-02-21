@@ -8,7 +8,8 @@ import (
 func main() {
 	address := ":8080"
 	fmt.Printf("Listening on port %s", address)
-	err := andrew.ListenAndServe(address)
+	server := andrew.FileSystemMuxer{ContentRoot: "."}
+	err := andrew.ListenAndServe(address, server)
 
 	if err != nil {
 		panic(err)
