@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -11,20 +12,37 @@ type FileSystemMuxer struct {
 	ContentRoot string
 }
 
+func NewFileSystemMuxer(contentRoot string) (FileSystemMuxer, error) {
+	cr, err := filepath.Abs(contentRoot)
+	if err != nil {
+		return FileSystemMuxer{}, err
+	}
+	return FileSystemMuxer{ContentRoot: cr}, nil
+}
+
 func (f FileSystemMuxer) Serve(w http.ResponseWriter, r *http.Request) {
+
 	err := os.Chdir(f.ContentRoot)
+	if err != nil {
+		panic(err)
+	}
+
 	pagePath := f.ContentRoot + r.RequestURI
+
+	if strings.HasSuffix(pagePath, "/") {
+		pagePath = pagePath + "index.html"
+	}
 
 	if err != nil {
 		panic(err)
 	}
 
 	if isIndexPage(pagePath) {
-		f.serveIndexPage(w, r)
+		f.serveIndexPage(w, r, pagePath)
 		return
 	}
 
-	f.serveNonIndexPage(w, r)
+	f.serveNonIndexPage(w, r, pagePath)
 	return
 }
 
@@ -32,9 +50,8 @@ func (f FileSystemMuxer) Serve(w http.ResponseWriter, r *http.Request) {
 // WebsiteFromFileSystem is a function that walks a directory starting at contentRoot and
 // gets a list of the html files inside that are not index.html. These
 // represent the articles (files) or the next organisational unit (directories).
-func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request) {
+func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request, page string) {
 
-	page := f.ContentRoot + r.RequestURI
 	pageContent, err := os.ReadFile(page)
 
 	if err != nil {
@@ -67,8 +84,7 @@ func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request) 
 	return
 }
 
-func (f FileSystemMuxer) serveNonIndexPage(w http.ResponseWriter, r *http.Request) {
-	page := f.ContentRoot + r.RequestURI
+func (f FileSystemMuxer) serveNonIndexPage(w http.ResponseWriter, r *http.Request, page string) {
 	pageContent, err := os.ReadFile(page)
 
 	if err != nil {

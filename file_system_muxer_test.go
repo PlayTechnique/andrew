@@ -10,6 +10,8 @@ import (
 )
 
 func TestGetPages(t *testing.T) {
+	t.Parallel()
+
 	expected := []byte(`
 <!DOCTYPE html>
 <head>
@@ -35,7 +37,10 @@ func TestGetPages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := andrew.FileSystemMuxer{ContentRoot: "."}
+	server, err := andrew.NewFileSystemMuxer(".")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	go func() {
 		err := andrew.ListenAndServe(":8082", server)
@@ -45,6 +50,67 @@ func TestGetPages(t *testing.T) {
 	}()
 
 	resp, err := http.Get("http://localhost:8082/index.html")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status code 200, got %s", resp.Status)
+	}
+
+	received, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !slices.Equal(received, expected) {
+		t.Fatalf("Expected %q, received %q", expected, received)
+	}
+}
+
+func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
+	t.Parallel()
+
+	expected := []byte(`
+<!DOCTYPE html>
+<head>
+  <title>index title</title>
+</head>
+<body>
+</body>
+`)
+
+	fixtureDir := t.TempDir()
+	err := os.Chdir(fixtureDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	i, err := os.Create(fixtureDir + "/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = i.Write(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := andrew.NewFileSystemMuxer(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		err := andrew.ListenAndServe(":8083", server)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	resp, err := http.Get("http://localhost:8083/")
 
 	if err != nil {
 		t.Fatal(err)
