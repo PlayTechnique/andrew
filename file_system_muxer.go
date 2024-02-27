@@ -60,6 +60,7 @@ func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request, 
 
 	// TODO: This check doesnt work because the page has not been read
 	if !strings.Contains(string(pageContent), "{{") {
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, string(pageContent))
 	}
 	// htmlSuffix := ".html"
@@ -92,7 +93,12 @@ func (f FileSystemMuxer) serveNonIndexPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	fmt.Fprintf(w, string(pageContent))
+	w.WriteHeader(http.StatusOK)
+	_, err = fmt.Fprintf(w, string(pageContent))
+
+	if err != nil {
+		panic(err)
+	}
 
 }
 
