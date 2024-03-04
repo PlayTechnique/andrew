@@ -94,7 +94,7 @@ func (f FileSystemMuxer) serveNonIndexPage(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_, err = fmt.Fprintf(w, string(pageContent))
+	_, err = fmt.Fprint(w, string(pageContent))
 
 	if err != nil {
 		panic(err)
@@ -123,7 +123,6 @@ func checkPageErrors(w http.ResponseWriter, r *http.Request, err error) {
 	// http 500
 	w.WriteHeader(http.StatusInternalServerError)
 	fmt.Fprintf(w, "500 something went wrong")
-	return
 }
 
 func isIndexPage(uri string) bool {
