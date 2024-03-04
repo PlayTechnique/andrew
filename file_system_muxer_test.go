@@ -8,6 +8,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/playtechnique/andrew"
 )
 
@@ -24,6 +25,7 @@ func TestGetPages(t *testing.T) {
 `)
 
 	fixtureDir := t.TempDir()
+	defer os.RemoveAll(fixtureDir)
 	err := os.Chdir(fixtureDir)
 	if err != nil {
 		t.Fatal(err)
@@ -80,6 +82,7 @@ func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
 `)
 
 	fixtureDir := t.TempDir()
+	defer os.RemoveAll(fixtureDir)
 
 	err := os.Chdir(fixtureDir)
 	if err != nil {
@@ -183,24 +186,36 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = e.Sync()
+	err = os.WriteFile(contentRoot+"/index.html", []byte(`
+<!doctype HTML>
+<head> </head>
+<body> 
+{{ .AndrewIndexBody }}
+</body>
+	`), 0o755)
+
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	server, err := andrew.NewFileSystemMuxer(".")
+	err = os.WriteFile(contentRoot+"/pages/1-2-3.html", []byte(`
+<!doctype HTML>
+<head>
+<title>1-2-3 Page</a>
+</head>
+	`), 0o700)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	go func() {
-		err := andrew.ListenAndServe(":8084", server)
+		err := andrew.ListenAndServe(":9091", contentRoot)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
-	resp, err := http.Get("http://localhost:8084/expected.html")
+	resp, err := http.Get("http://localhost:9091/index.html")
 
 	if err != nil {
 		t.Fatal(err)
@@ -212,7 +227,15 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !slices.Equal(received, expected) {
-		t.Fatalf("Expected %q, received %q", expected, received)
+	expectedIndex := `
+<!doctype HTML>
+<head> </head>
+<body> 
+<a href="pages/1-2-3.html">1-2-3 Page</a>
+</body>
+			`
+
+	if !slices.Equal(received, []byte(expectedIndex)) {
+		t.Error(cmp.Diff(expectedIndex, received))
 	}
 }

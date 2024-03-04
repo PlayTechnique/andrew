@@ -1,0 +1,4 @@
+how do I handle images?
+how do I handle css?
+How do I handle anything that's not html, for that matter? - the relative links might be right.
+switch the test paradigm from the funky go routine + http server to use the test library

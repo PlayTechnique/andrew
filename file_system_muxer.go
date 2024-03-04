@@ -2,10 +2,12 @@ package andrew
 
 import (
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 )
 
 type FileSystemMuxer struct {
@@ -39,39 +41,89 @@ func (f FileSystemMuxer) Serve(w http.ResponseWriter, r *http.Request) {
 // WebsiteFromFileSystem is a function that walks a directory starting at contentRoot and
 // gets a list of the html files inside that are not index.html. These
 // represent the articles (files) or the next organisational unit (directories).
-func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request, page string) {
+func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request, pagePath string) {
 
-	pageContent, err := os.ReadFile(page)
+	pageContent, err := os.ReadFile(pagePath)
 
 	if err != nil {
 		checkPageErrors(w, r, err)
 	}
 
 	// TODO: This check doesnt work because the page has not been read
-	if !strings.Contains(string(pageContent), "{{") {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, string(pageContent))
+	w.WriteHeader(http.StatusOK)
+	t, err := template.New(pagePath).Parse(string(pageContent))
+	if err != nil {
+		panic(err)
 	}
-	// htmlSuffix := ".html"
-	// if filepath.Ext(path) == htmlSuffix {
-	// 	// foo/bar/bam.html becomes [foo, bar, bam.html]
-	// 	filenamePortions := strings.Split(path, "/")
-	// 	// path is contentroot/path/to/file.html. It needs to become
-	// 	// path/to/file.html
-	// 	link := strings.Join(filenamePortions[1:], "/")
-	//
-	// 	title, err := getTitle(path, filenamePortions, htmlSuffix)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	// TODO: extract the formatting into its own function.
-	// 	path = fmt.Sprintf("<a href=%s>%s</a>", link, title)
-	//
-	// 	html = append(html, path)
-	// }
 
-	return
+	indexBody, err := buildIndexBody(pagePath)
+
+	if err != nil {
+		panic(err)
+	}
+
+	body := strings.Join(indexBody, "\n")
+
+	err = t.Execute(w, map[string]string{"AndrewIndexBody": body})
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func buildIndexBody(indexPagePath string) ([]string, error) {
+
+	html := []string{}
+
+	//when at root - list of articles of all pages
+	// when in a subdirectory - list of pages from here down
+	//Given a path to the index page of ./foo/bar/index.html, I want the contentRoot
+	//to be the containing directory i.e. ./foo/bar/
+	pathSegments := strings.Split(indexPagePath, "/")
+	contentRoot := strings.Join(pathSegments[:len(pathSegments)-1], "/")
+
+	err := filepath.WalkDir(contentRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		if strings.Contains(path, "index.html") {
+			if path == contentRoot+"/index.html" {
+				return nil
+			}
+
+			return nil
+		}
+
+		htmlSuffix := ".html"
+		if filepath.Ext(path) == htmlSuffix {
+			// foo/bar/bam.html becomes [foo, bar, bam.html]
+			filenamePortions := strings.Split(path, "/")
+			// path is contentroot/path/to/file.html. It needs to become
+			// path/to/file.html
+			link := strings.Join(filenamePortions[1:], "/")
+			title, err := getTitle(path, filenamePortions, htmlSuffix)
+
+			if err != nil {
+				return err
+			}
+
+			// TODO: extract the formatting into its own function.
+			// <a href=path/to/foo.html>what's the title?</a>
+			path = fmt.Sprintf("<a href=%s>%s</a>", link, title)
+
+			html = append(html, path)
+		}
+
+		return nil
+	})
+
+	return html, err
+
 }
 
 func (f FileSystemMuxer) serveNonIndexPage(w http.ResponseWriter, r *http.Request, page string) {
