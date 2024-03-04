@@ -21,20 +21,10 @@ func NewFileSystemMuxer(contentRoot string) (FileSystemMuxer, error) {
 }
 
 func (f FileSystemMuxer) Serve(w http.ResponseWriter, r *http.Request) {
-
-	err := os.Chdir(f.ContentRoot)
-	if err != nil {
-		panic(err)
-	}
-
 	pagePath := f.ContentRoot + r.RequestURI
 
 	if strings.HasSuffix(pagePath, "/") {
 		pagePath = pagePath + "index.html"
-	}
-
-	if err != nil {
-		panic(err)
 	}
 
 	if isIndexPage(pagePath) {
@@ -43,7 +33,6 @@ func (f FileSystemMuxer) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	f.serveNonIndexPage(w, r, pagePath)
-	return
 }
 
 // websiteStorage
