@@ -2,16 +2,28 @@ package andrew
 
 import (
 	"fmt"
-	"golang.org/x/net/html"
 	"net/http"
 	"os"
+
+	"golang.org/x/net/html"
 )
 
-func ListenAndServe(address string, andrewServer muxer) error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", andrewServer.Serve)
+func ListenAndServe(address string, contentRoot string) error {
 
-	err := http.ListenAndServe(address, mux)
+	andrewMuxer, err := NewFileSystemMuxer(contentRoot)
+	if err != nil {
+		return err
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", andrewMuxer.Serve)
+
+	server := http.Server{
+		Handler: mux,
+		Addr:    address,
+	}
+
+	err = server.ListenAndServe()
 
 	return err
 }
