@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -64,6 +65,7 @@ func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request, 
 
 	body := strings.Join(indexBody, "\n")
 
+	//write the executed template directly to the http writer
 	err = t.Execute(w, map[string]string{"AndrewIndexBody": body})
 
 	if err != nil {
@@ -71,12 +73,13 @@ func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
+// buildIndexBody will traverse the file system starting at the directory containing the index.html
+// whose body we're building. It finds all html files (excepting index.html files) and returns them
+// as a list of html links to those pages.
 func buildIndexBody(indexPagePath string) ([]string, error) {
 
 	html := []string{}
 
-	//when at root - list of articles of all pages
-	// when in a subdirectory - list of pages from here down
 	//Given a path to the index page of ./foo/bar/index.html, I want the contentRoot
 	//to be the containing directory i.e. ./foo/bar/
 	pathSegments := strings.Split(indexPagePath, "/")
@@ -92,21 +95,15 @@ func buildIndexBody(indexPagePath string) ([]string, error) {
 		}
 
 		if strings.Contains(path, "index.html") {
-			if path == contentRoot+"/index.html" {
-				return nil
-			}
-
 			return nil
 		}
 
 		htmlSuffix := ".html"
 		if filepath.Ext(path) == htmlSuffix {
-			// foo/bar/bam.html becomes [foo, bar, bam.html]
-			filenamePortions := strings.Split(path, "/")
 			// path is contentroot/path/to/file.html. It needs to become
-			// path/to/file.html
-			link := strings.Join(filenamePortions[1:], "/")
-			title, err := getTitle(path, filenamePortions, htmlSuffix)
+			// path/to/file.html for generating the link to the path.
+			localPath := strings.Replace(path, contentRoot+"/", "", 1)
+			title, err := getTitle(path)
 
 			if err != nil {
 				return err
@@ -114,9 +111,9 @@ func buildIndexBody(indexPagePath string) ([]string, error) {
 
 			// TODO: extract the formatting into its own function.
 			// <a href=path/to/foo.html>what's the title?</a>
-			path = fmt.Sprintf("<a href=%s>%s</a>", link, title)
+			link := fmt.Sprintf("<a href=\"%s\">%s</a>", localPath, title)
 
-			html = append(html, path)
+			html = append(html, link)
 		}
 
 		return nil
@@ -171,17 +168,15 @@ func isIndexPage(uri string) bool {
 	return isIndex
 }
 
-func getTitle(path string, filenamePortions []string, htmlSuffix string) (string, error) {
-	title, err := titleFromHTMLTitleElement(path)
+func getTitle(filePath string) (string, error) {
+	title, err := titleFromHTMLTitleElement(filePath)
 
 	if err != nil {
 		if err.Error() != "no title element found" {
 			return "", err
 		}
 		// filename is bam.html
-		filename := filenamePortions[len(filenamePortions)-1]
-		// title is bam
-		title = filename[:len(filename)-len(htmlSuffix)]
+		title = path.Base(filePath)
 	}
 	return title, nil
 }

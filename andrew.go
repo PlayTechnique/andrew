@@ -52,6 +52,7 @@ func titleFromHTMLTitleElement(filePath string) (string, error) {
 
 // getAttribute recursively descends an html node tree, searching for
 // the attribute provided. Once the attribute is discovered, it returns.
+
 func getAttribute(attribute string, n *html.Node) string {
 	if n.Type == html.ElementNode && n.Data == attribute {
 		if n.FirstChild != nil {

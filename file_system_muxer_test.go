@@ -192,7 +192,7 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 <body> 
 {{ .AndrewIndexBody }}
 </body>
-	`), 0o755)
+`), 0o755)
 
 	if err != nil {
 		t.Fatal(err)
@@ -201,9 +201,9 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 	err = os.WriteFile(contentRoot+"/pages/1-2-3.html", []byte(`
 <!doctype HTML>
 <head>
-<title>1-2-3 Page</a>
+<title>1-2-3 Page</title>
 </head>
-	`), 0o700)
+`), 0o700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,9 +233,9 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 <body> 
 <a href="pages/1-2-3.html">1-2-3 Page</a>
 </body>
-			`
+`
 
 	if !slices.Equal(received, []byte(expectedIndex)) {
-		t.Error(cmp.Diff(expectedIndex, received))
+		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expectedIndex, received))
 	}
 }
