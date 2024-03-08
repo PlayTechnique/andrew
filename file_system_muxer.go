@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/sirupsen/logrus"
 )
 
 type FileSystemMuxer struct {
@@ -25,6 +27,7 @@ func NewFileSystemMuxer(contentRoot string) (FileSystemMuxer, error) {
 
 func (f FileSystemMuxer) Serve(w http.ResponseWriter, r *http.Request) {
 	pagePath := f.ContentRoot + r.RequestURI
+	logrus.Info("Serving ", pagePath)
 
 	if strings.HasSuffix(pagePath, "/") {
 		pagePath = pagePath + "index.html"
