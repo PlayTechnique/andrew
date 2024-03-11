@@ -53,8 +53,6 @@ func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request, 
 		checkPageErrors(w, r, err)
 	}
 
-	// TODO: This check doesnt work because the page has not been read
-	w.WriteHeader(http.StatusOK)
 	t, err := template.New(pagePath).Parse(string(pageContent))
 	if err != nil {
 		panic(err)

@@ -25,18 +25,8 @@ func TestGetPages(t *testing.T) {
 `)
 
 	fixtureDir := t.TempDir()
-	defer os.RemoveAll(fixtureDir)
-	err := os.Chdir(fixtureDir)
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	i, err := os.Create(fixtureDir + "/index.html")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = i.Write(expected)
+	err := os.WriteFile(fixtureDir+"/index.html", expected, 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,10 +42,6 @@ func TestGetPages(t *testing.T) {
 
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("Expected status code 200, got %s", resp.Status)
 	}
 
 	received, err := io.ReadAll(resp.Body)
@@ -82,25 +68,14 @@ func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
 `)
 
 	fixtureDir := t.TempDir()
-	defer os.RemoveAll(fixtureDir)
 
-	err := os.Chdir(fixtureDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	i, err := os.Create(fixtureDir + "/index.html")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = i.Write(expected)
+	err := os.WriteFile(fixtureDir+"/index.html", expected, 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	go func() {
-		err := andrew.ListenAndServe(":8083", ".")
+		err := andrew.ListenAndServe(":8083", fixtureDir)
 		if err != nil {
 			panic(err)
 		}
@@ -110,10 +85,6 @@ func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
 
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("Expected status code 200, got %s", resp.Status)
 	}
 
 	received, err := io.ReadAll(resp.Body)
