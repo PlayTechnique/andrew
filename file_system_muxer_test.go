@@ -2,7 +2,9 @@ package andrew_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"slices"
@@ -24,21 +26,23 @@ func TestGetPages(t *testing.T) {
 </body>
 `)
 
-	fixtureDir := t.TempDir()
+	contentRoot := t.TempDir()
 
-	err := os.WriteFile(fixtureDir+"/index.html", expected, 0o755)
+	err := os.WriteFile(contentRoot+"/index.html", expected, 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	testPort, testUrl := getTestPortAndUrl(t)
+
 	go func() {
-		err := andrew.ListenAndServe(":8082", fixtureDir)
+		err := andrew.ListenAndServe(testPort, contentRoot)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
-	resp, err := http.Get("http://localhost:8082/index.html")
+	resp, err := http.Get(testUrl + "/index.html")
 
 	if err != nil {
 		t.Fatal(err)
@@ -61,27 +65,29 @@ func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
 	expected := []byte(`
 <!DOCTYPE html>
 <head>
-  <title>index title</title>
+<title>index title</title>
 </head>
 <body>
 </body>
-`)
+	`)
 
-	fixtureDir := t.TempDir()
+	contentRoot := t.TempDir()
 
-	err := os.WriteFile(fixtureDir+"/index.html", expected, 0o755)
+	err := os.WriteFile(contentRoot+"/index.html", expected, 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	testPort, testUrl := getTestPortAndUrl(t)
+
 	go func() {
-		err := andrew.ListenAndServe(":8083", fixtureDir)
+		err := andrew.ListenAndServe(testPort, contentRoot)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
-	resp, err := http.Get("http://localhost:8083/")
+	resp, err := http.Get(testUrl)
 
 	if err != nil {
 		t.Fatal(err)
@@ -101,11 +107,22 @@ func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
 func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 	t.Parallel()
 
-	fixtureDir := newFixtureDir(t)
+	contentRoot := t.TempDir()
 
-	startAndrewServer(fixtureDir)
+	err := os.WriteFile(contentRoot+"/page.html", []byte("some text"), 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	resp, err := http.Get("http://localhost:8084/page.html")
+	testPort, testUrl := getTestPortAndUrl(t)
+	go func() {
+		err := andrew.ListenAndServe(testPort, contentRoot)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	resp, err := http.Get(testUrl + "/page.html")
 
 	if err != nil {
 		t.Fatal(err)
@@ -120,32 +137,6 @@ func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 	if !bytes.Equal(received, []byte("some text")) {
 		t.Fatalf("Expected %q, received %q", []byte("some text"), received)
 	}
-}
-
-func startAndrewServer(fixtureDir string) {
-	go func() {
-		//how can I get a random free port here for the server to start on, and return it for the tests
-		//add a server object to track this datum and for convenience methods like "shut down the server".
-		err := andrew.ListenAndServe(":8084", fixtureDir)
-		if err != nil {
-			panic(err)
-		}
-	}()
-}
-
-func newFixtureDir(t *testing.T) string {
-	fixtureDir := t.TempDir()
-
-	_, err := os.Create(fixtureDir + "/index.html")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(fixtureDir+"/page.html", []byte("some text"), 0o755)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return fixtureDir
 }
 
 func TestAnIndexBodyIsBuilt(t *testing.T) {
@@ -179,14 +170,16 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	testPort, testUrl := getTestPortAndUrl(t)
+
 	go func() {
-		err := andrew.ListenAndServe(":9091", contentRoot)
+		err := andrew.ListenAndServe(testPort, contentRoot)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
-	resp, err := http.Get("http://localhost:9091/index.html")
+	resp, err := http.Get(testUrl + "/index.html")
 
 	if err != nil {
 		t.Fatal(err)
@@ -209,4 +202,27 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 	if !slices.Equal(received, []byte(expectedIndex)) {
 		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expectedIndex, received))
 	}
+}
+
+// func startAndrewServer(contentRoot string) {
+
+// 	go func() {
+// 		//how can I get a random free port here for the server to start on, and return it for the tests
+// 		//add a server object to track this datum and for convenience methods like "shut down the server".
+// 		err := andrew.ListenAndServe(":8084", contentRoot)
+// 		if err != nil {
+// 			panic(err)
+// 		}
+// 	}()
+// }
+
+func getTestPortAndUrl(t *testing.T) (string, string) {
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	listener.Close()
+	url := fmt.Sprintf("http://localhost:%d/", listener.Addr().(*net.TCPAddr).Port)
+	return listener.Addr().String(), url
 }
