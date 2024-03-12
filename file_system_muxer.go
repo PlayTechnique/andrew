@@ -126,12 +126,31 @@ func buildIndexBody(indexPagePath string) ([]string, error) {
 
 }
 
-func (f FileSystemMuxer) serveNonIndexPage(w http.ResponseWriter, r *http.Request, page string) {
-	pageContent, err := os.ReadFile(page)
+func (f FileSystemMuxer) serveNonIndexPage(w http.ResponseWriter, r *http.Request, pagePath string) {
+	pageContent, err := os.ReadFile(pagePath)
 
 	if err != nil {
 		checkPageErrors(w, r, err)
 		return
+	}
+	// Determine the content type based on the file extension
+	switch filepath.Ext(pagePath) {
+	case ".css":
+		w.Header().Set("Content-Type", "text/css")
+	case ".html":
+		w.Header().Set("Content-Type", "text/html")
+	case ".js":
+		w.Header().Set("Content-Type", "application/javascript")
+	case ".jpg":
+		w.Header().Set("Content-Type", "image/jpeg")
+	case ".png":
+		w.Header().Set("Content-Type", "image/png")
+	case ".gif":
+		w.Header().Set("Content-Type", "image/gif")
+	case ".webp":
+		w.Header().Set("Content-Type", "image/webp")
+	case ".ico":
+		w.Header().Set("Content-Type", "image/x-icon")
 	}
 
 	w.WriteHeader(http.StatusOK)
