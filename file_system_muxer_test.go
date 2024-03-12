@@ -33,15 +33,7 @@ func TestGetPages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testPort, testUrl := getTestPortAndUrl(t)
-
-	go func() {
-		err := andrew.ListenAndServe(testPort, contentRoot)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
+	testUrl := startAndrewServer(contentRoot, t)
 	resp, err := http.Get(testUrl + "/index.html")
 
 	if err != nil {
@@ -78,14 +70,7 @@ func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testPort, testUrl := getTestPortAndUrl(t)
-
-	go func() {
-		err := andrew.ListenAndServe(testPort, contentRoot)
-		if err != nil {
-			panic(err)
-		}
-	}()
+	testUrl := startAndrewServer(contentRoot, t)
 
 	resp, err := http.Get(testUrl)
 
@@ -114,13 +99,7 @@ func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testPort, testUrl := getTestPortAndUrl(t)
-	go func() {
-		err := andrew.ListenAndServe(testPort, contentRoot)
-		if err != nil {
-			panic(err)
-		}
-	}()
+	testUrl := startAndrewServer(contentRoot, t)
 
 	resp, err := http.Get(testUrl + "/page.html")
 
@@ -170,14 +149,7 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testPort, testUrl := getTestPortAndUrl(t)
-
-	go func() {
-		err := andrew.ListenAndServe(testPort, contentRoot)
-		if err != nil {
-			panic(err)
-		}
-	}()
+	testUrl := startAndrewServer(contentRoot, t)
 
 	resp, err := http.Get(testUrl + "/index.html")
 
@@ -204,18 +176,26 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 	}
 }
 
-// func startAndrewServer(contentRoot string) {
+// startAndrewServer starts an andrew and returns the localhost url that you can run http gets against
+// to retrieve data from that server
+func startAndrewServer(contentRoot string, t *testing.T) string {
 
-// 	go func() {
-// 		//how can I get a random free port here for the server to start on, and return it for the tests
-// 		//add a server object to track this datum and for convenience methods like "shut down the server".
-// 		err := andrew.ListenAndServe(":8084", contentRoot)
-// 		if err != nil {
-// 			panic(err)
-// 		}
-// 	}()
-// }
+	testPort, testUrl := getTestPortAndUrl(t)
+	go func() {
+		//how can I get a random free port here for the server to start on, and return it for the tests
+		//add a server object to track this datum and for convenience methods like "shut down the server".
+		err := andrew.ListenAndServe(testPort, contentRoot)
+		if err != nil {
+			panic(err)
+		}
+	}()
 
+	return testUrl
+}
+
+// getTestPortAndUrl creates a net.Listen to retrieve a random, currently open port on the system.
+// It then closes the net.Listen, as andrew will want to bind to the discovered port, but returns
+// a preformatted localhost url with the new port as a test convenience.
 func getTestPortAndUrl(t *testing.T) (string, string) {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
