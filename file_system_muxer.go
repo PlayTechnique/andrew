@@ -85,6 +85,7 @@ func buildIndexBody(indexPagePath string) ([]string, error) {
 	//to be the containing directory i.e. ./foo/bar/
 	pathSegments := strings.Split(indexPagePath, "/")
 	contentRoot := strings.Join(pathSegments[:len(pathSegments)-1], "/")
+	linkNumber := 0
 
 	err := filepath.WalkDir(contentRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -112,7 +113,8 @@ func buildIndexBody(indexPagePath string) ([]string, error) {
 
 			// TODO: extract the formatting into its own function.
 			// <a href=path/to/foo.html>what's the title?</a>
-			link := fmt.Sprintf("<a href=\"%s\">%s</a>", localPath, title)
+			link := fmt.Sprintf("<a class=\"andrewindexbodylink\" id=\"andrewindexbodylink%s\" href=\"%s\">%s</a>", fmt.Sprint(linkNumber), localPath, title)
+			linkNumber = linkNumber + 1
 
 			html = append(html, link)
 		}
