@@ -34,6 +34,7 @@ func TestGetPages(t *testing.T) {
 	}
 
 	testUrl := startAndrewServer(contentRoot, t)
+
 	resp, err := http.Get(testUrl + "/index.html")
 
 	if err != nil {
@@ -167,7 +168,7 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 <!doctype HTML>
 <head> </head>
 <body> 
-<a href="pages/1-2-3.html">1-2-3 Page</a>
+<a class="andrewindexbodylink" id="andrewindexbodylink0" href="pages/1-2-3.html">1-2-3 Page</a>
 </body>
 `
 
