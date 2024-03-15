@@ -198,6 +198,8 @@ func startAndrewServer(contentRoot string, t *testing.T) string {
 // It then closes the net.Listen, as andrew will want to bind to the discovered port, but returns
 // a preformatted localhost url with the new port as a test convenience.
 func getTestPortAndUrl(t *testing.T) (string, string) {
+	t.Helper()
+
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatal(err)

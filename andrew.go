@@ -6,7 +6,7 @@ import (
 
 func ListenAndServe(address string, contentRoot string) error {
 
-	andrewMuxer, err := NewFileSystemMuxer(contentRoot)
+	andrewMuxer, err := NewAndrewMuxer(contentRoot)
 	if err != nil {
 		return err
 	}

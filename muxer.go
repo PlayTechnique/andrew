@@ -5,29 +5,28 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
-
-	"github.com/sirupsen/logrus"
 )
 
-type FileSystemMuxer struct {
+type AndrewMuxer struct {
 	ContentRoot string
 }
 
-func NewFileSystemMuxer(contentRoot string) (FileSystemMuxer, error) {
+func NewAndrewMuxer(contentRoot string) (AndrewMuxer, error) {
 	cr, err := filepath.Abs(contentRoot)
 	if err != nil {
-		return FileSystemMuxer{}, err
+		return AndrewMuxer{}, err
 	}
-	return FileSystemMuxer{ContentRoot: cr}, nil
+	return AndrewMuxer{ContentRoot: cr}, nil
 }
 
-func (f FileSystemMuxer) Serve(w http.ResponseWriter, r *http.Request) {
+// The Serve function handles requests for any URL. It checks whether the request is for
+// an index.html page or for anything else. The special behaviour for the index page is documented
+// below.
+func (f AndrewMuxer) Serve(w http.ResponseWriter, r *http.Request) {
 	pagePath := f.ContentRoot + r.RequestURI
-	logrus.Info("Serving ", pagePath)
 
 	if strings.HasSuffix(pagePath, "/") {
 		pagePath = pagePath + "index.html"
@@ -38,14 +37,14 @@ func (f FileSystemMuxer) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f.serveNonIndexPage(w, r, pagePath)
+	f.serveOther(w, r, pagePath)
 }
 
-// websiteStorage
-// WebsiteFromFileSystem is a function that walks a directory starting at contentRoot and
-// gets a list of the html files inside that are not index.html. These
-// represent the articles (files) or the next organisational unit (directories).
-func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request, pagePath string) {
+// serveIndexPage treats the index page as a template with a single data element: AndrewIndexBody.
+// If the page does not contain this element, it is written to the http.ResponseWriter as it is.
+// If the page does contain an AndrewIndexBody element, serveIndexPage calls out to buildIndexBody to create
+// the correct body of the page and then renders it into the AndrewIndexBody.
+func (f AndrewMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request, pagePath string) {
 
 	pageContent, err := os.ReadFile(pagePath)
 
@@ -74,8 +73,8 @@ func (f FileSystemMuxer) serveIndexPage(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-// buildIndexBody will traverse the file system starting at the directory containing the index.html
-// whose body we're building. It finds all html files (excepting index.html files) and returns them
+// buildIndexBody receives the path to a file. It traverses the file system starting at the directory containing
+// that file, finds all html files that are _not_ index.html files and returns them
 // as a list of html links to those pages.
 func buildIndexBody(indexPagePath string) ([]string, error) {
 
@@ -126,7 +125,8 @@ func buildIndexBody(indexPagePath string) ([]string, error) {
 
 }
 
-func (f FileSystemMuxer) serveNonIndexPage(w http.ResponseWriter, r *http.Request, pagePath string) {
+// serveOther writes to the ResponseWriter any arbitrary html file, or css, javascript, images etc.
+func (f AndrewMuxer) serveOther(w http.ResponseWriter, r *http.Request, pagePath string) {
 	pageContent, err := os.ReadFile(pagePath)
 
 	if err != nil {
@@ -162,6 +162,10 @@ func (f FileSystemMuxer) serveNonIndexPage(w http.ResponseWriter, r *http.Reques
 
 }
 
+// checkPageErrors is a helper function that will convert an error handed into it
+// into the appropriate http error code.
+// If no specific error is found, a 500 is the default value written to the
+// http.ResponseWriter
 func checkPageErrors(w http.ResponseWriter, r *http.Request, err error) {
 	// if a file doesn't exist
 	// http 404
@@ -185,20 +189,9 @@ func checkPageErrors(w http.ResponseWriter, r *http.Request, err error) {
 	fmt.Fprintf(w, "500 something went wrong")
 }
 
+// isIndexPage is a helper function to check if a file being requested
+// is an index.html file.
 func isIndexPage(uri string) bool {
 	isIndex := strings.HasSuffix(uri, "index.html")
 	return isIndex
-}
-
-func getTitle(filePath string) (string, error) {
-	title, err := titleFromHTMLTitleElement(filePath)
-
-	if err != nil {
-		if err.Error() != "no title element found" {
-			return "", err
-		}
-		// filename is bam.html
-		title = path.Base(filePath)
-	}
-	return title, nil
 }

@@ -3,6 +3,7 @@ package andrew
 import (
 	"fmt"
 	"os"
+	"path"
 
 	"golang.org/x/net/html"
 )
@@ -31,7 +32,6 @@ func titleFromHTMLTitleElement(filePath string) (string, error) {
 
 // getAttribute recursively descends an html node tree, searching for
 // the attribute provided. Once the attribute is discovered, it returns.
-
 func getAttribute(attribute string, n *html.Node) string {
 	if n.Type == html.ElementNode && n.Data == attribute {
 		if n.FirstChild != nil {
@@ -46,4 +46,17 @@ func getAttribute(attribute string, n *html.Node) string {
 		}
 	}
 	return ""
+}
+
+func getTitle(filePath string) (string, error) {
+	title, err := titleFromHTMLTitleElement(filePath)
+
+	if err != nil {
+		if err.Error() != "no title element found" {
+			return "", err
+		}
+		// filename is bam.html
+		title = path.Base(filePath)
+	}
+	return title, nil
 }
