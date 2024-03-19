@@ -16,7 +16,6 @@ import (
 
 func TestGetPages(t *testing.T) {
 	t.Parallel()
-
 	expected := []byte(`
 <!DOCTYPE html>
 <head>
@@ -33,7 +32,7 @@ func TestGetPages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testUrl := startAndrewServer(contentRoot, t)
+	testUrl := startAndrewServer(t, contentRoot)
 
 	resp, err := http.Get(testUrl + "/index.html")
 
@@ -71,7 +70,7 @@ func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testUrl := startAndrewServer(contentRoot, t)
+	testUrl := startAndrewServer(t, contentRoot)
 
 	resp, err := http.Get(testUrl)
 
@@ -100,7 +99,7 @@ func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testUrl := startAndrewServer(contentRoot, t)
+	testUrl := startAndrewServer(t, contentRoot)
 
 	resp, err := http.Get(testUrl + "/page.html")
 
@@ -150,7 +149,7 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testUrl := startAndrewServer(contentRoot, t)
+	testUrl := startAndrewServer(t, contentRoot)
 
 	resp, err := http.Get(testUrl + "/index.html")
 
@@ -179,7 +178,8 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 
 // startAndrewServer starts an andrew and returns the localhost url that you can run http gets against
 // to retrieve data from that server
-func startAndrewServer(contentRoot string, t *testing.T) string {
+func startAndrewServer(t *testing.T, contentRoot string) string {
+	t.Helper()
 
 	testPort, testUrl := getTestPortAndUrl(t)
 	go func() {
