@@ -118,7 +118,7 @@ func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 	}
 }
 
-func TestAnIndexBodyIsBuilt(t *testing.T) {
+func TestIndexBodyFromTopLevelIndexHtmlPage(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := t.TempDir()
@@ -168,6 +168,64 @@ func TestAnIndexBodyIsBuilt(t *testing.T) {
 <head> </head>
 <body> 
 <a class="andrewindexbodylink" id="andrewindexbodylink0" href="pages/1-2-3.html">1-2-3 Page</a>
+</body>
+`
+
+	if !slices.Equal(received, []byte(expectedIndex)) {
+		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expectedIndex, received))
+	}
+}
+
+func TestIndexBodyFromADirectoryTwoLevelsDown(t *testing.T) {
+	t.Parallel()
+
+	contentRoot := t.TempDir()
+	err := os.MkdirAll(contentRoot+"/parentDir/childDir", 0700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(contentRoot+"/parentDir/index.html", []byte(`
+<!doctype HTML>
+<head> </head>
+<body> 
+{{ .AndrewIndexBody }}
+</body>
+`), 0o755)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(contentRoot+"/parentDir/childDir/1-2-3.html", []byte(`
+<!doctype HTML>
+<head>
+<title>1-2-3 Page</title>
+</head>
+`), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testUrl := startAndrewServer(t, contentRoot)
+
+	resp, err := http.Get(testUrl + "/parentDir/index.html")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedIndex := `
+<!doctype HTML>
+<head> </head>
+<body> 
+<a class="andrewindexbodylink" id="andrewindexbodylink0" href="childDir/1-2-3.html">1-2-3 Page</a>
 </body>
 `
 

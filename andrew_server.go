@@ -12,7 +12,8 @@ import (
 )
 
 type AndrewServer struct {
-	SiteFiles fs.FS
+	SiteFiles               fs.FS
+	andrewindexbodytemplate string
 }
 
 func NewAndrewServer(contentRoot string) (AndrewServer, error) {
@@ -21,7 +22,7 @@ func NewAndrewServer(contentRoot string) (AndrewServer, error) {
 		return AndrewServer{}, err
 	}
 
-	return AndrewServer{SiteFiles: os.DirFS(cr)}, nil
+	return AndrewServer{SiteFiles: os.DirFS(cr), andrewindexbodytemplate: "AndrewIndexBody"}, nil
 }
 
 // The Serve function handles requests for any URL. It checks whether the request is for
@@ -35,7 +36,6 @@ func (a AndrewServer) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isIndexPage(pagePath) {
-
 		a.serveIndexPage(w, r, pagePath)
 		return
 	}
@@ -49,6 +49,10 @@ func (a AndrewServer) Serve(w http.ResponseWriter, r *http.Request) {
 // the correct body of the page and then renders it into the AndrewIndexBody.
 func (a AndrewServer) serveIndexPage(w http.ResponseWriter, r *http.Request, pagePath string) {
 
+	// /index.html becomes index.html
+	// /articles/page.html becomes articles/page.html
+	// without this the paths aren't found properly inside the fs.
+	pagePath = strings.TrimPrefix(pagePath, "/")
 	pageContent, err := fs.ReadFile(a.SiteFiles, pagePath)
 
 	if err != nil {
@@ -60,7 +64,7 @@ func (a AndrewServer) serveIndexPage(w http.ResponseWriter, r *http.Request, pag
 		panic(err)
 	}
 
-	indexBody, err := a.buildIndexBody(pagePath)
+	indexBody, err := a.buildAndrewIndexBody(pagePath)
 
 	if err != nil {
 		panic(err)
@@ -69,24 +73,22 @@ func (a AndrewServer) serveIndexPage(w http.ResponseWriter, r *http.Request, pag
 	body := strings.Join(indexBody, "\n")
 
 	//write the executed template directly to the http writer
-	err = t.Execute(w, map[string]string{"AndrewIndexBody": body})
+	err = t.Execute(w, map[string]string{a.andrewindexbodytemplate: body})
 
 	if err != nil {
 		panic(err)
 	}
 }
 
-// buildIndexBody receives the path to a file. It traverses the file system starting at the directory containing
+// buildAndrewIndexBody receives the path to a file. It traverses the file system starting at the directory containing
 // that file, finds all html files that are _not_ index.html files and returns them
 // as a list of html links to those pages.
-func (a AndrewServer) buildIndexBody(indexPagePath string) ([]string, error) {
+func (a AndrewServer) buildAndrewIndexBody(indexPagePath string) ([]string, error) {
 
 	html := []string{}
 
-	//Given a path to the index page of ./foo/bar/index.html, I want the contentRoot
-	//to be the containing directory i.e. ./foo/bar/
-	pathSegments := strings.Split(indexPagePath, "/")
-	localContentRoot := strings.Join(pathSegments[:len(pathSegments)-1], "/")
+	//Given a dir structure <site root>/parentDir/index.html, localContentRoot is parentDir/
+	localContentRoot := path.Dir(indexPagePath)
 	linkNumber := 0
 
 	err := fs.WalkDir(a.SiteFiles, localContentRoot, func(path string, d fs.DirEntry, err error) error {
@@ -94,28 +96,33 @@ func (a AndrewServer) buildIndexBody(indexPagePath string) ([]string, error) {
 			return err
 		}
 
-		if d.IsDir() {
-			return nil
-		}
-
-		if strings.Contains(path, "index.html") {
+		if d.IsDir() || strings.Contains(path, "index.html") {
 			return nil
 		}
 
 		htmlSuffix := ".html"
 		if filepath.Ext(path) == htmlSuffix {
-			// path is contentroot/path/to/file.html. It needs to become
-			// path/to/file.html for generating the link to the path.
-			localPath := strings.Replace(path, localContentRoot+"/", "", 1)
-			title, err := getTitle(path)
+			htmlContent, err := fs.ReadFile(a.SiteFiles, path)
 
 			if err != nil {
 				return err
 			}
 
+			title, err := getTitle(path, htmlContent)
+
+			if err != nil {
+				return err
+			}
+
+			if !strings.HasSuffix(localContentRoot, string(filepath.Separator)) {
+				localContentRoot += string(filepath.Separator)
+			}
+
+			linkPath := strings.TrimPrefix(path, localContentRoot)
+
 			// TODO: extract the formatting into its own function.
 			// <a href=path/to/foo.html>what's the title?</a>
-			link := fmt.Sprintf("<a class=\"andrewindexbodylink\" id=\"andrewindexbodylink%s\" href=\"%s\">%s</a>", fmt.Sprint(linkNumber), localPath, title)
+			link := fmt.Sprintf("<a class=\"andrewindexbodylink\" id=\"andrewindexbodylink%s\" href=\"%s\">%s</a>", fmt.Sprint(linkNumber), linkPath, title)
 			linkNumber = linkNumber + 1
 
 			html = append(html, link)
@@ -130,7 +137,8 @@ func (a AndrewServer) buildIndexBody(indexPagePath string) ([]string, error) {
 
 // serveOther writes to the ResponseWriter any arbitrary html file, or css, javascript, images etc.
 func (a AndrewServer) serveOther(w http.ResponseWriter, r *http.Request, pagePath string) {
-	pageContent, err := os.ReadFile(pagePath)
+	pagePath = strings.TrimPrefix(pagePath, "/")
+	pageContent, err := fs.ReadFile(a.SiteFiles, pagePath)
 
 	if err != nil {
 		checkPageErrors(w, r, err)
