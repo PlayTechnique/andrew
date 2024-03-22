@@ -1,8 +1,8 @@
 package andrew
 
 import (
+	"bytes"
 	"fmt"
-	"os"
 	"path"
 
 	"golang.org/x/net/html"
@@ -11,14 +11,9 @@ import (
 // titleFromHTMLTitleElement returns the content of the "title" tag or an empty string.
 // The error value "no title element found" is returned if title is not discovered
 // or is set to an empty string.
-func titleFromHTMLTitleElement(filePath string) (string, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
+func titleFromHTMLTitleElement(fileContent []byte) (string, error) {
 
-	doc, err := html.Parse(f)
+	doc, err := html.Parse(bytes.NewReader(fileContent))
 	if err != nil {
 		return "", err
 	}
@@ -48,15 +43,15 @@ func getAttribute(attribute string, n *html.Node) string {
 	return ""
 }
 
-func getTitle(filePath string) (string, error) {
-	title, err := titleFromHTMLTitleElement(filePath)
+func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
+	title, err := titleFromHTMLTitleElement(htmlContent)
 
 	if err != nil {
 		if err.Error() != "no title element found" {
 			return "", err
 		}
 		// filename is bam.html
-		title = path.Base(filePath)
+		title = path.Base(htmlFilePath)
 	}
 	return title, nil
 }

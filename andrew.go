@@ -6,13 +6,13 @@ import (
 
 func ListenAndServe(address string, contentRoot string) error {
 
-	andrewMuxer, err := NewAndrewMuxer(contentRoot)
+	andrewServer, err := NewAndrewServer(contentRoot)
 	if err != nil {
 		return err
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", andrewMuxer.Serve)
+	mux.HandleFunc("/", andrewServer.Serve)
 
 	server := http.Server{
 		Handler: mux,
