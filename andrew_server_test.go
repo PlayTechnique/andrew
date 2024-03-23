@@ -243,7 +243,7 @@ func startAndrewServer(t *testing.T, contentRoot string) string {
 	go func() {
 		//how can I get a random free port here for the server to start on, and return it for the tests
 		//add a server object to track this datum and for convenience methods like "shut down the server".
-		err := andrew.ListenAndServe(testPort, contentRoot)
+		err := andrew.ListenAndServe(contentRoot, testPort, testUrl)
 		if err != nil {
 			panic(err)
 		}

@@ -13,16 +13,18 @@ import (
 
 type AndrewServer struct {
 	SiteFiles               fs.FS
+	BaseUrl                 string
+	Address                 string
 	andrewindexbodytemplate string
 }
 
-func NewAndrewServer(contentRoot string) (AndrewServer, error) {
+func NewAndrewServer(contentRoot string, address string, baseUrl string) (AndrewServer, error) {
 	cr, err := filepath.Abs(contentRoot)
 	if err != nil {
 		return AndrewServer{}, err
 	}
 
-	return AndrewServer{SiteFiles: os.DirFS(cr), andrewindexbodytemplate: "AndrewIndexBody"}, nil
+	return AndrewServer{SiteFiles: os.DirFS(cr), andrewindexbodytemplate: "AndrewIndexBody", Address: address, BaseUrl: baseUrl}, nil
 }
 
 // The Serve function handles requests for any URL. It checks whether the request is for
