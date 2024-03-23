@@ -22,14 +22,6 @@ jobs:
             extension: ''
 
     steps:
-      - name: "Check Repository"
-        run: |
-          if [[ "${{ github.repository }}" != "playtechnique/andrew" ]]; then
-            echo "This workflow is intended to run only on the playtechnique/andrew repository."
-            echo "Current repository: ${{ github.repository }}"
-            exit 0
-          fi
-
       - name: "checkout"
         uses: actions/checkout@v3
         with:
@@ -52,13 +44,17 @@ jobs:
         with:
           ref: ${{ steps.previoustag.outputs.tag }}
 
-      - name: "Compile binary for ${{ matrix.goos }}-${{ matrix.goarch }}"
+      - name: "compile binary linux-amd64/macos amd64 & arm64"
         run: |
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o andrew-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}
-          
+          GOOS=linux GOARCH=amd64 go build -o andrew-linux-amd64
+          GOOS=linux GOARCH=arm64 go build -o andrew-linux-arm64
+          GOOS=darwin GOARCH=amd64 go build -o andrew-mac-amd64
+          GOOS=darwin GOARCH=arm64 go build -o andrew-mac-arm64
+          GOOS=windows GOARCH=amd64 go build -o andrew-win-amd64.exe
+          GOOS=windows GOARCH=arm64 go build -o andrew-win-arm64.exe
+
       - name: Release
         id: create_release
-        if: ${{ matrix.goos == 'linux' && matrix.goarch == 'amd64' }} # Only execute once
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -66,13 +62,68 @@ jobs:
           tag_name: ${{ steps.previoustag.outputs.tag }}
           release_name: Release ${{ steps.previoustag.outputs.tag }}
 
-      - name: Upload ${{ matrix.goos }} ${{ matrix.goarch }}
-        if: steps.create_release.outputs.upload_url != '' # Only upload if release was created
+      - name: Upload linux amd64
+        id: upload-linux-asset-amd64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./andrew-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}
-          asset_name: andrew-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}
-          asset_content_type: application/octet-stream
+          asset_path: ./andrew-linux-amd64
+          asset_name: andrew-linux-amd64
+          asset_content_type: binary
+
+      - name: Upload linux arm64
+        id: upload-linux-asset-arm64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./andrew-linux-arm64
+          asset_name: andrew-linux-arm64
+          asset_content_type: binary
+
+      - name: Upload macos amd64
+        id: upload-macos-asset-amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./andrew-mac-amd64
+          asset_name: andrew-mac-amd64
+          asset_content_type: binary
+
+      - name: Upload macos arm64
+        id: upload-macos-asset-arm64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./andrew-mac-arm64
+          asset_name: andrew-mac-arm64
+          asset_content_type: binary
+
+      - name: Upload win amd64
+        id: upload-win-asset-amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./andrew-win-amd64.exe
+          asset_name: andrew-win-amd64.exe
+          asset_content_type: binary
+      
+      - name: Upload win
+        id: upload-win-asset-arm64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./andrew-win-arm64.exe
+          asset_name: andrew-win-arm64.exe
+          asset_content_type: binary
