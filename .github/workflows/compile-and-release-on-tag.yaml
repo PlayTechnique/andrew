@@ -9,17 +9,6 @@ on:
 jobs:
   build-and-release-tag:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
-        include:
-          - goos: windows
-            extension: .exe
-          - goos: linux
-            extension: ''
-          - goos: darwin
-            extension: ''
 
     steps:
       - name: "checkout"
