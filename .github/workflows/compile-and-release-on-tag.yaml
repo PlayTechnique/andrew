@@ -1,0 +1,78 @@
+name: "Compile and Release on Tag Push"
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  build-and-release-tag:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        include:
+          - goos: windows
+            extension: .exe
+          - goos: linux
+            extension: ''
+          - goos: darwin
+            extension: ''
+
+    steps:
+      - name: "Check Repository"
+        run: |
+          if [[ "${{ github.repository }}" != "playtechnique/andrew" ]]; then
+            echo "This workflow is intended to run only on the playtechnique/andrew repository."
+            echo "Current repository: ${{ github.repository }}"
+            exit 0
+          fi
+
+      - name: "checkout"
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ env.GITHUB_REF }}
+
+      - name: Set up Go 1.22
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.22'
+
+
+      - name: 'Get Previous tag'
+        id: previoustag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+        with:
+          fallback: 1.0.0 # Optional fal
+
+      - name: "checkout"
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.previoustag.outputs.tag }}
+
+      - name: "Compile binary for ${{ matrix.goos }}-${{ matrix.goarch }}"
+        run: |
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o andrew-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}
+          
+      - name: Release
+        id: create_release
+        if: ${{ matrix.goos == 'linux' && matrix.goarch == 'amd64' }} # Only execute once
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.previoustag.outputs.tag }}
+          release_name: Release ${{ steps.previoustag.outputs.tag }}
+
+      - name: Upload ${{ matrix.goos }} ${{ matrix.goarch }}
+        if: steps.create_release.outputs.upload_url != '' # Only upload if release was created
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./andrew-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}
+          asset_name: andrew-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.extension }}
+          asset_content_type: application/octet-stream
