@@ -17,7 +17,8 @@ apache's lead on expecting index.html in any directory as a default page.
 
 address is the address you want to bind the server to. Specify as an address:port combination.
 
-baseUrl is the hostname you're serving from. This is a part of sitemaps and rss feeds.
+baseUrl is the hostname you're serving from. This is a part of sitemaps and rss feeds. It contains the protocol
+e.g. `https://playtechnique.io`
 
 
 ## rendering the .AndrewIndexBody
@@ -62,6 +63,7 @@ If the page does not contain a `<title>` element, then Andrew will use the file 
 In this release, Andrew serves you page links ascii-betically.
 
 ## sitemap.xml
+When the endpoint `baseUrl/sitemap.xml` is visited, Andrew will automatically generate a sitemap containing paths to all html pages.
 
 ## server
 `go install github.com/PlayTechnique/andrew/cmd`
