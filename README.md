@@ -5,6 +5,22 @@ with the contents of any html files that are below the current index.html in the
 
 It's grown a little to include a small sitemap generator.  
 
+## invocation
+andrew -h to see the help
+
+andrew accepts up to three arguments, in this order:
+```bash
+andrew [contentRoot] [address] [baseUrl]
+```
+contentRoot is the directory you're serving from, that contains your top level index.html. andrew follows
+apache's lead on expecting index.html in any directory as a default page.
+
+address is the address you want to bind the server to. Specify as an address:port combination.
+
+baseUrl is the hostname you're serving from. This is a part of sitemaps and rss feeds. It contains the protocol
+e.g. `https://playtechnique.io`
+
+
 ## rendering the .AndrewIndexBody
 Given this file system structure:
 ```text
@@ -44,7 +60,10 @@ If a page contains a `<title>` element, Andrew picks it up and uses that as the 
 If the page does not contain a `<title>` element, then Andrew will use the file name of that file as the link name.
 
 ## ordering of pages
-In this release, Andrew orders your page links asci-betically.
+In this release, Andrew serves you page links ascii-betically.
+
+## sitemap.xml
+When the endpoint `baseUrl/sitemap.xml` is visited, Andrew will automatically generate a sitemap containing paths to all html pages.
 
 ## server
-The quickest way to get up and running is to cd into a directory containing web pages and `go run github.com/playtechnique/andrew/cmd/andrew@v0.0.4 .`. It binds to port 8080.
+`go install github.com/PlayTechnique/andrew/cmd`
