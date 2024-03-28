@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/playtechnique/andrew"
 )
@@ -34,7 +35,12 @@ func main() {
 
 	fmt.Printf("Listening on %s, serving on %s", address, baseUrl)
 
-	err := andrew.ListenAndServe(contentRoot, address, baseUrl)
+	cr, err := filepath.Abs(contentRoot)
+	if err != nil {
+		panic(err)
+	}
+
+	err = andrew.ListenAndServe(os.DirFS(cr), address, baseUrl)
 
 	if err != nil {
 		panic(err)

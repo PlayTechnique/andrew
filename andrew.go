@@ -1,10 +1,11 @@
 package andrew
 
 import (
+	"io/fs"
 	"net/http"
 )
 
-func ListenAndServe(contentRoot string, address string, baseUrl string) error {
+func ListenAndServe(contentRoot fs.FS, address string, baseUrl string) error {
 
 	andrewServer, err := NewAndrewServer(contentRoot, address, baseUrl)
 	if err != nil {

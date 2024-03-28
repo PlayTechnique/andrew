@@ -18,13 +18,8 @@ type AndrewServer struct {
 	andrewindexbodytemplate string
 }
 
-func NewAndrewServer(contentRoot string, address string, baseUrl string) (AndrewServer, error) {
-	cr, err := filepath.Abs(contentRoot)
-	if err != nil {
-		return AndrewServer{}, err
-	}
-
-	return AndrewServer{SiteFiles: os.DirFS(cr), andrewindexbodytemplate: "AndrewIndexBody", Address: address, BaseUrl: baseUrl}, nil
+func NewAndrewServer(contentRoot fs.FS, address string, baseUrl string) (AndrewServer, error) {
+	return AndrewServer{SiteFiles: contentRoot, andrewindexbodytemplate: "AndrewIndexBody", Address: address, BaseUrl: baseUrl}, nil
 }
 
 // The Serve function handles requests for any URL. It checks whether the request is for
@@ -149,11 +144,11 @@ func (a AndrewServer) serveOther(w http.ResponseWriter, r *http.Request, pagePat
 	// Determine the content type based on the file extension
 	switch filepath.Ext(pagePath) {
 	case ".css":
-		w.Header().Set("Content-Type", "text/css")
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 	case ".html":
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	case ".js":
-		w.Header().Set("Content-Type", "application/javascript")
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	case ".jpg":
 		w.Header().Set("Content-Type", "image/jpeg")
 	case ".png":
