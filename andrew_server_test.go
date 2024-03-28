@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
-	"os"
 	"slices"
 	"testing"
+	"testing/fstest"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/playtechnique/andrew"
@@ -25,11 +26,8 @@ func TestGetPages(t *testing.T) {
 </body>
 `)
 
-	contentRoot := t.TempDir()
-
-	err := os.WriteFile(contentRoot+"/index.html", expected, 0o755)
-	if err != nil {
-		t.Fatal(err)
+	contentRoot := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: expected, Mode: 0o755},
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
@@ -63,11 +61,8 @@ func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
 </body>
 	`)
 
-	contentRoot := t.TempDir()
-
-	err := os.WriteFile(contentRoot+"/index.html", expected, 0o755)
-	if err != nil {
-		t.Fatal(err)
+	contentRoot := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: expected, Mode: 0o755},
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
@@ -92,11 +87,8 @@ func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
 func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 	t.Parallel()
 
-	contentRoot := t.TempDir()
-
-	err := os.WriteFile(contentRoot+"/page.html", []byte("some text"), 0o755)
-	if err != nil {
-		t.Fatal(err)
+	contentRoot := fstest.MapFS{
+		"page.html": &fstest.MapFile{Data: []byte("some text"), Mode: 0o755},
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
@@ -121,36 +113,23 @@ func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 func TestIndexBodyFromTopLevelIndexHtmlPage(t *testing.T) {
 	t.Parallel()
 
-	contentRoot := t.TempDir()
-	err := os.MkdirAll(contentRoot+"/pages", 0700)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(contentRoot+"/index.html", []byte(`
+	contentRoot := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(`
 <!doctype HTML>
 <head> </head>
-<body> 
+<body>
 {{ .AndrewIndexBody }}
 </body>
-`), 0o755)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(contentRoot+"/pages/1-2-3.html", []byte(`
+`), Mode: 0o755},
+		"pages/1-2-3.html": &fstest.MapFile{Data: []byte(`
 <!doctype HTML>
 <head>
 <title>1-2-3 Page</title>
 </head>
-`), 0o700)
-	if err != nil {
-		t.Fatal(err)
+`), Mode: 0o755},
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
-
 	resp, err := http.Get(testUrl + "/index.html")
 
 	if err != nil {
@@ -166,7 +145,7 @@ func TestIndexBodyFromTopLevelIndexHtmlPage(t *testing.T) {
 	expectedIndex := `
 <!doctype HTML>
 <head> </head>
-<body> 
+<body>
 <a class="andrewindexbodylink" id="andrewindexbodylink0" href="pages/1-2-3.html">1-2-3 Page</a>
 </body>
 `
@@ -179,32 +158,20 @@ func TestIndexBodyFromTopLevelIndexHtmlPage(t *testing.T) {
 func TestIndexBodyFromADirectoryTwoLevelsDown(t *testing.T) {
 	t.Parallel()
 
-	contentRoot := t.TempDir()
-	err := os.MkdirAll(contentRoot+"/parentDir/childDir", 0700)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(contentRoot+"/parentDir/index.html", []byte(`
+	contentRoot := fstest.MapFS{
+		"parentDir/index.html": &fstest.MapFile{Data: []byte(`
 <!doctype HTML>
 <head> </head>
-<body> 
+<body>
 {{ .AndrewIndexBody }}
 </body>
-`), 0o755)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(contentRoot+"/parentDir/childDir/1-2-3.html", []byte(`
+`), Mode: 0o755},
+		"parentDir/childDir/1-2-3.html": &fstest.MapFile{Data: []byte(`
 <!doctype HTML>
 <head>
 <title>1-2-3 Page</title>
 </head>
-`), 0o700)
-	if err != nil {
-		t.Fatal(err)
+`), Mode: 0o755},
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
@@ -224,7 +191,7 @@ func TestIndexBodyFromADirectoryTwoLevelsDown(t *testing.T) {
 	expectedIndex := `
 <!doctype HTML>
 <head> </head>
-<body> 
+<body>
 <a class="andrewindexbodylink" id="andrewindexbodylink0" href="childDir/1-2-3.html">1-2-3 Page</a>
 </body>
 `
@@ -234,9 +201,50 @@ func TestIndexBodyFromADirectoryTwoLevelsDown(t *testing.T) {
 	}
 }
 
+// func TestMineTypesAreSetCorrectly(t *testing.T) {
+// 	t.Parallel()
+
+// 	contentRoot := fstest.MapFS{
+// 		"page.css":  {},
+// 		"page.html": {},
+// 		"page.js":   {},
+// 		"page.jpg":  {},
+// 		"page.png":  {},
+// 		"page.gif":  {},
+// 		"page.webp": {},
+// 		"page.ico":  {},
+// 	}
+
+// 	testUrl := startAndrewServer(t, contentRoot)
+
+// 	resp, err := http.Get(testUrl + "/parentDir/index.html")
+
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	received, err := io.ReadAll(resp.Body)
+
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	expectedIndex := `
+// <!doctype HTML>
+// <head> </head>
+// <body>
+// <a class="andrewindexbodylink" id="andrewindexbodylink0" href="childDir/1-2-3.html">1-2-3 Page</a>
+// </body>
+// `
+
+// 	if !slices.Equal(received, []byte(expectedIndex)) {
+// 		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expectedIndex, received))
+// 	}
+// }
+
 // startAndrewServer starts an andrew and returns the localhost url that you can run http gets against
 // to retrieve data from that server
-func startAndrewServer(t *testing.T, contentRoot string) string {
+func startAndrewServer(t *testing.T, contentRoot fs.FS) string {
 	t.Helper()
 
 	testPort, testUrl := getTestPortAndUrl(t)

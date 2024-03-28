@@ -1,19 +1,13 @@
 package andrew
 
 import (
+	"io/fs"
 	"net/http"
-	"os"
-	"path/filepath"
 )
 
-func ListenAndServe(contentRoot string, address string, baseUrl string) error {
+func ListenAndServe(contentRoot fs.FS, address string, baseUrl string) error {
 
-	cr, err := filepath.Abs(contentRoot)
-	if err != nil {
-		return err
-	}
-
-	andrewServer, err := NewAndrewServer(os.DirFS(cr), address, baseUrl)
+	andrewServer, err := NewAndrewServer(contentRoot, address, baseUrl)
 	if err != nil {
 		return err
 	}
