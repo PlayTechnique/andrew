@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"path/filepath"
 	"slices"
 	"testing"
 	"testing/fstest"
@@ -201,46 +202,55 @@ func TestIndexBodyFromADirectoryTwoLevelsDown(t *testing.T) {
 	}
 }
 
-// func TestMineTypesAreSetCorrectly(t *testing.T) {
-// 	t.Parallel()
+func TestMineTypesAreSetCorrectly(t *testing.T) {
+	t.Parallel()
 
-// 	contentRoot := fstest.MapFS{
-// 		"page.css":  {},
-// 		"page.html": {},
-// 		"page.js":   {},
-// 		"page.jpg":  {},
-// 		"page.png":  {},
-// 		"page.gif":  {},
-// 		"page.webp": {},
-// 		"page.ico":  {},
-// 	}
+	expectedMimeTypes := map[string]string{
+		".css":  "text/css; charset=utf-8",
+		".html": "text/html; charset=utf-8",
+		".js":   "application/javascript; charset=utf-8",
+		".jpg":  "image/jpeg",
+		".png":  "image/png",
+		".gif":  "image/gif",
+		".webp": "image/webp",
+		".ico":  "image/x-icon",
+	}
 
-// 	testUrl := startAndrewServer(t, contentRoot)
+	contentRoot := fstest.MapFS{
+		"page.css":  {},
+		"page.html": {},
+		"page.js":   {},
+		"page.jpg":  {},
+		"page.png":  {},
+		"page.gif":  {},
+		"page.webp": {},
+		"page.ico":  {},
+	}
 
-// 	resp, err := http.Get(testUrl + "/parentDir/index.html")
+	testUrl := startAndrewServer(t, contentRoot)
 
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	for page, _ := range contentRoot {
+		resp, err := http.Get(testUrl + "/" + page)
 
-// 	received, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Read the body to prevent resource leaks
+		_, err = io.ReadAll(resp.Body)
 
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+		if err != nil {
+			t.Error(err)
+		}
 
-// 	expectedIndex := `
-// <!doctype HTML>
-// <head> </head>
-// <body>
-// <a class="andrewindexbodylink" id="andrewindexbodylink0" href="childDir/1-2-3.html">1-2-3 Page</a>
-// </body>
-// `
+		expectedMimeType := expectedMimeTypes[filepath.Ext(page)]
+		contentType := resp.Header.Get("Content-Type")
 
-// 	if !slices.Equal(received, []byte(expectedIndex)) {
-// 		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expectedIndex, received))
-// 	}
-// }
+		if contentType != expectedMimeType {
+			t.Errorf("Incorrect MIME type for %s: got %s, want %s", page, contentType, expectedMimeType)
+		}
+	}
+
+}
 
 // startAndrewServer starts an andrew and returns the localhost url that you can run http gets against
 // to retrieve data from that server

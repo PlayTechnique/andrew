@@ -144,11 +144,11 @@ func (a AndrewServer) serveOther(w http.ResponseWriter, r *http.Request, pagePat
 	// Determine the content type based on the file extension
 	switch filepath.Ext(pagePath) {
 	case ".css":
-		w.Header().Set("Content-Type", "text/css")
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 	case ".html":
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	case ".js":
-		w.Header().Set("Content-Type", "application/javascript")
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	case ".jpg":
 		w.Header().Set("Content-Type", "image/jpeg")
 	case ".png":
