@@ -29,7 +29,7 @@ func TestGetForExistingPageRetrievesThePage(t *testing.T) {
 `)
 
 	contentRoot := fstest.MapFS{
-		"index.html": &fstest.MapFile{Data: expected, Mode: 0o755},
+		"index.html": &fstest.MapFile{Data: expected},
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
@@ -104,7 +104,7 @@ func TestGetPagesWithoutSpecifyingPageDefaultsToIndexHtml(t *testing.T) {
 	`)
 
 	contentRoot := fstest.MapFS{
-		"index.html": &fstest.MapFile{Data: expected, Mode: 0o755},
+		"index.html": &fstest.MapFile{Data: expected},
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
@@ -130,7 +130,7 @@ func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := fstest.MapFS{
-		"page.html": &fstest.MapFile{Data: []byte("some text"), Mode: 0o755},
+		"page.html": &fstest.MapFile{Data: []byte("some text")},
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
@@ -162,13 +162,13 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInTopLevelIndexHtmlPage(t *testing.T
 <body>
 {{ .AndrewIndexBody }}
 </body>
-`), Mode: 0o755},
+`)},
 		"pages/1-2-3.html": &fstest.MapFile{Data: []byte(`
 <!doctype HTML>
 <head>
 <title>1-2-3 Page</title>
 </head>
-`), Mode: 0o755},
+`)},
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
@@ -207,13 +207,13 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 <body>
 {{ .AndrewIndexBody }}
 </body>
-`), Mode: 0o755},
+`)},
 		"parentDir/childDir/1-2-3.html": &fstest.MapFile{Data: []byte(`
 <!doctype HTML>
 <head>
 <title>1-2-3 Page</title>
 </head>
-`), Mode: 0o755},
+`)},
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
@@ -270,7 +270,7 @@ func TestCorrectMimeTypeIsSetForCommonFileTypes(t *testing.T) {
 
 	testUrl := startAndrewServer(t, contentRoot)
 
-	for page, _ := range contentRoot {
+	for page := range contentRoot {
 		resp, err := http.Get(testUrl + "/" + page)
 
 		if err != nil {
