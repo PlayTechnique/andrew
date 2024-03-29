@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -16,7 +17,7 @@ import (
 	"github.com/playtechnique/andrew"
 )
 
-func TestGetPages(t *testing.T) {
+func TestGetForExistingPageRetrievesThePage(t *testing.T) {
 	t.Parallel()
 	expected := []byte(`
 <!DOCTYPE html>
@@ -50,7 +51,47 @@ func TestGetPages(t *testing.T) {
 	}
 }
 
-func TestGetPagesDefaultsToIndexHtml(t *testing.T) {
+func TestGetForNonExistentPageGenerates404(t *testing.T) {
+	t.Parallel()
+
+	contentRoot := fstest.MapFS{}
+	testUrl := startAndrewServer(t, contentRoot)
+
+	resp, err := http.Get(testUrl + "/index.html")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != 404 {
+		t.Fatalf("Expected a 404 response for a non-existent page, received %d", resp.StatusCode)
+	}
+}
+
+func TestGetForUnreadablePageGenerates403(t *testing.T) {
+	t.Parallel()
+
+	contentRoot := t.TempDir()
+
+	// fstest.MapFS does not enforce file permissions, so we need a real file system in this test.
+	err := os.WriteFile(contentRoot+"/index.html", []byte(""), 0o222)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testUrl := startAndrewServer(t, os.DirFS(contentRoot))
+
+	resp, err := http.Get(testUrl + "/index.html")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != 403 {
+		t.Fatalf("Expected a 403 response for a page without permission, received %d", resp.StatusCode)
+	}
+}
+
+func TestGetPagesWithoutSpecifyingPageDefaultsToIndexHtml(t *testing.T) {
 	t.Parallel()
 
 	expected := []byte(`
@@ -111,7 +152,7 @@ func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 	}
 }
 
-func TestIndexBodyFromTopLevelIndexHtmlPage(t *testing.T) {
+func TestAndrewIndexBodyIsGeneratedCorrectlyInTopLevelIndexHtmlPage(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := fstest.MapFS{
@@ -156,7 +197,7 @@ func TestIndexBodyFromTopLevelIndexHtmlPage(t *testing.T) {
 	}
 }
 
-func TestIndexBodyFromADirectoryTwoLevelsDown(t *testing.T) {
+func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := fstest.MapFS{
@@ -202,7 +243,7 @@ func TestIndexBodyFromADirectoryTwoLevelsDown(t *testing.T) {
 	}
 }
 
-func TestMineTypesAreSetCorrectly(t *testing.T) {
+func TestCorrectMimeTypeIsSetForCommonFileTypes(t *testing.T) {
 	t.Parallel()
 
 	expectedMimeTypes := map[string]string{
