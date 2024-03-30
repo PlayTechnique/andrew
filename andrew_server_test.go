@@ -2,6 +2,7 @@ package andrew_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -57,7 +59,7 @@ func TestGetForNonExistentPageGenerates404(t *testing.T) {
 	contentRoot := fstest.MapFS{}
 	testUrl := startAndrewServer(t, contentRoot)
 
-	resp, err := http.Get(testUrl + "/index.html")
+	resp, err := http.Get(testUrl + "/page.html")
 
 	if err != nil {
 		t.Fatal(err)
@@ -91,6 +93,39 @@ func TestGetForUnreadablePageGenerates403(t *testing.T) {
 	}
 }
 
+func TestGetSitemapReturnsTheSitemap(t *testing.T) {
+	t.Parallel()
+
+	testUrl := startAndrewServer(t, fstest.MapFS{})
+
+	resp, err := http.Get(testUrl + "/sitemap.xml")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []byte("http://www.sitemaps.org/schemas/sitemap/0.9")
+	received, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Contains(received, expected) {
+		t.Fatalf("Expected %q, received %q", expected, received)
+	}
+
+}
+
+func Test500ErrorForUnforeseenErrorCase(t *testing.T) {
+	t.Parallel()
+
+	_, status := andrew.CheckPageErrors(errors.New("novel error"))
+
+	if status != 500 {
+		t.Errorf("Expected status 500 for unknown error, received %q", status)
+	}
+}
 func TestGetPagesWithoutSpecifyingPageDefaultsToIndexHtml(t *testing.T) {
 	t.Parallel()
 
@@ -243,7 +278,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 	}
 }
 
-func TestCorrectMimeTypeIsSetForCommonFileTypes(t *testing.T) {
+func TestCorrectMimeTypeIsSetForKnownFileTypes(t *testing.T) {
 	t.Parallel()
 
 	expectedMimeTypes := map[string]string{
@@ -290,7 +325,23 @@ func TestCorrectMimeTypeIsSetForCommonFileTypes(t *testing.T) {
 			t.Errorf("Incorrect MIME type for %s: got %s, want %s", page, contentType, expectedMimeType)
 		}
 	}
+}
 
+func TestMainCalledWithHelpDisplaysHelp(t *testing.T) {
+	t.Parallel()
+
+	args := []string{"--help"}
+	received := new(bytes.Buffer)
+
+	exit := andrew.Main(args, received)
+
+	if exit != 0 {
+		t.Error("Expected exit value 0, received %i", exit)
+	}
+
+	if !strings.Contains(received.String(), "Usage") {
+		t.Errorf("Expected help message containing 'Usage', received %s", received)
+	}
 }
 
 // startAndrewServer starts an andrew and returns the localhost url that you can run http gets against
