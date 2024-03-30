@@ -28,11 +28,7 @@ func TestGenerateSitemapCreatesACorrectSiteMap(t *testing.T) {
 
 	baseUrl := "http://localhost:8080"
 
-	sitemap, err := andrew.GenerateSiteMap(testFs, baseUrl)
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	sitemap := andrew.GenerateSiteMap(testFs, baseUrl)
 
 	if !bytes.Equal(sitemap, expected) {
 		t.Error(cmp.Diff(expected, sitemap))

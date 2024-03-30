@@ -2,6 +2,7 @@ package andrew
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -18,8 +19,62 @@ type AndrewServer struct {
 	andrewindexbodytemplate string
 }
 
+const (
+	DefaultContentRoot = "."
+	DefaultAddress     = ":8080"
+	DefaultBaseUrl     = "http://localhost:8080"
+)
+
 func NewAndrewServer(contentRoot fs.FS, address string, baseUrl string) (AndrewServer, error) {
 	return AndrewServer{SiteFiles: contentRoot, andrewindexbodytemplate: "AndrewIndexBody", Address: address, BaseUrl: baseUrl}, nil
+}
+
+func Main(args []string, printDest io.Writer) int {
+	help := `Usage: andrew [contentRoot] [address] [baseUrl]
+	- contentRoot: The root directory of your content. Defaults to '.' if not specified.
+	- address: The address to bind to. Defaults to 'localhost:8080' if not specified. If in doubt, you probably want 0.0.0.0:<something>
+	- base URL: The protocol://hostname for your server. Defaults to 'http://localhost:8080' if not specified. Used to generate sitemap/rss feed accurately.
+	-h, --help: Display this help message.
+`
+
+	for _, arg := range args {
+		if arg == "-h" || arg == "--help" {
+			fmt.Fprint(printDest, help)
+			return 0
+		}
+	}
+
+	contentRoot, address, baseUrl := ParseArgs(args)
+
+	fmt.Fprintf(printDest, "Serving from %s, listening on %s, serving on %s", contentRoot, address, baseUrl)
+
+	err := ListenAndServe(os.DirFS(contentRoot), address, baseUrl)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return 0
+}
+
+func ParseArgs(args []string) (string, string, string) {
+	contentRoot := DefaultContentRoot
+	address := DefaultAddress
+	baseUrl := DefaultBaseUrl
+
+	if len(args) >= 1 {
+		contentRoot = args[0]
+	}
+
+	if len(args) >= 2 {
+		address = args[1]
+	}
+
+	if len(args) >= 3 {
+		baseUrl = args[2]
+	}
+
+	return contentRoot, address, baseUrl
 }
 
 // The Serve function handles requests for any URL. It checks whether the request is for
@@ -37,7 +92,7 @@ func (a AndrewServer) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.serveOther(w, r, pagePath)
+	a.serveOther(w, pagePath)
 }
 
 // serveIndexPage treats the index page as a template with a single data element: AndrewIndexBody.
@@ -53,7 +108,10 @@ func (a AndrewServer) serveIndexPage(w http.ResponseWriter, r *http.Request, pag
 	pageContent, err := fs.ReadFile(a.SiteFiles, pagePath)
 
 	if err != nil {
-		checkPageErrors(w, r, err)
+		message, status := CheckPageErrors(err)
+		w.WriteHeader(status)
+		fmt.Fprint(w, message)
+		return
 	}
 
 	t, err := template.New(pagePath).Parse(string(pageContent))
@@ -133,14 +191,17 @@ func (a AndrewServer) buildAndrewIndexBody(indexPagePath string) ([]string, erro
 }
 
 // serveOther writes to the ResponseWriter any arbitrary html file, or css, javascript, images etc.
-func (a AndrewServer) serveOther(w http.ResponseWriter, r *http.Request, pagePath string) {
+func (a AndrewServer) serveOther(w http.ResponseWriter, pagePath string) {
 	pagePath = strings.TrimPrefix(pagePath, "/")
 	pageContent, err := fs.ReadFile(a.SiteFiles, pagePath)
 
 	if err != nil {
-		checkPageErrors(w, r, err)
+		message, status := CheckPageErrors(err)
+		w.WriteHeader(status)
+		fmt.Fprint(w, message)
 		return
 	}
+
 	// Determine the content type based on the file extension
 	switch filepath.Ext(pagePath) {
 	case ".css":
@@ -162,39 +223,29 @@ func (a AndrewServer) serveOther(w http.ResponseWriter, r *http.Request, pagePat
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_, err = fmt.Fprint(w, string(pageContent))
-
-	if err != nil {
-		panic(err)
-	}
+	fmt.Fprint(w, string(pageContent))
 
 }
 
-// checkPageErrors is a helper function that will convert an error handed into it
-// into the appropriate http error code.
-// If no specific error is found, a 500 is the default value written to the
-// http.ResponseWriter
-func checkPageErrors(w http.ResponseWriter, r *http.Request, err error) {
+// CheckPageErrors is a helper function that will convert an error handed into it
+// into the appropriate http error code and a message.
+// If no specific error is found, a 500 is the default value returned.
+func CheckPageErrors(err error) (string, int) {
 	// if a file doesn't exist
 	// http 404
 	if os.IsNotExist(err) {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, " 404 not found %s", r.RequestURI)
-		return
+		return "404 not found", http.StatusNotFound
 	}
 
 	// if the file does exist but is unreadable
 	// http 403
 	if os.IsPermission(err) {
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprintf(w, "403 Forbidden")
-		return
+		return "403 Forbidden", http.StatusForbidden
 	}
 
 	// other errors; not sure what they are, but catchall
 	// http 500
-	w.WriteHeader(http.StatusInternalServerError)
-	fmt.Fprintf(w, "500 something went wrong")
+	return "500 something went wrong", http.StatusInternalServerError
 }
 
 // isIndexPage is a helper function to check if a file being requested

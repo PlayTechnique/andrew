@@ -11,14 +11,10 @@ import (
 
 // SiteMap
 func (a AndrewServer) ServeSiteMap(w http.ResponseWriter, r *http.Request) {
-	sitemap, err := GenerateSiteMap(a.SiteFiles, a.BaseUrl)
-
-	if err != nil {
-		checkPageErrors(w, r, err)
-	}
+	sitemap := GenerateSiteMap(a.SiteFiles, a.BaseUrl)
 
 	w.WriteHeader(http.StatusOK)
-	_, err = fmt.Fprint(w, string(sitemap))
+	_, err := fmt.Fprint(w, string(sitemap))
 
 	if err != nil {
 		panic(err)
@@ -27,7 +23,7 @@ func (a AndrewServer) ServeSiteMap(w http.ResponseWriter, r *http.Request) {
 }
 
 // Generates and returns a sitemap.xml.
-func GenerateSiteMap(f fs.FS, baseUrl string) ([]byte, error) {
+func GenerateSiteMap(f fs.FS, baseUrl string) []byte {
 
 	buff := new(bytes.Buffer)
 
@@ -59,5 +55,5 @@ func GenerateSiteMap(f fs.FS, baseUrl string) ([]byte, error) {
 
 	fmt.Fprint(buff, footer)
 
-	return buff.Bytes(), nil
+	return buff.Bytes()
 }
