@@ -99,7 +99,7 @@ func (a AndrewServer) Serve(w http.ResponseWriter, r *http.Request) {
 // If the page does not contain this element, it is written to the http.ResponseWriter as it is.
 // If the page does contain an AndrewIndexBody element, serveIndexPage calls out to buildIndexBody to create
 // the correct body of the page and then renders it into the AndrewIndexBody.
-func (a AndrewServer) serveIndexPage(w http.ResponseWriter, r *http.Request, pagePath string) {
+func (a AndrewServer) serveIndexPage(w http.ResponseWriter, _ *http.Request, pagePath string) {
 
 	// /index.html becomes index.html
 	// /articles/page.html becomes articles/page.html
@@ -135,7 +135,8 @@ func (a AndrewServer) serveIndexPage(w http.ResponseWriter, r *http.Request, pag
 	}
 }
 
-// buildAndrewIndexBody receives the path to a file. It traverses the file system starting at the directory containing
+// buildAndrewIndexBody receives the path to a file, currently normally an index file.
+// It traverses the file system starting at the directory containing
 // that file, finds all html files that are _not_ index.html files and returns them
 // as a list of html links to those pages.
 func (a AndrewServer) buildAndrewIndexBody(indexPagePath string) ([]string, error) {

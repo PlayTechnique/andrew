@@ -8,6 +8,9 @@ import (
 	"golang.org/x/net/html"
 )
 
+type AndrewPage struct {
+}
+
 // titleFromHTMLTitleElement returns the content of the "title" tag or an empty string.
 // The error value "no title element found" is returned if title is not discovered
 // or is set to an empty string.

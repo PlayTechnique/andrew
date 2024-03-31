@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/playtechnique/andrew"
@@ -342,6 +343,81 @@ func TestMainCalledWithHelpDisplaysHelp(t *testing.T) {
 	if !strings.Contains(received.String(), "Usage") {
 		t.Errorf("Expected help message containing 'Usage', received %s", received)
 	}
+}
+
+func TestMainCalledWithNoArgsUsesDefaults(t *testing.T) {
+	t.Parallel()
+
+	contentRoot, address, baseUrl := andrew.ParseArgs([]string{})
+
+	if contentRoot != andrew.DefaultContentRoot {
+		t.Errorf("contentroot should be %s, received %q", andrew.DefaultContentRoot, contentRoot)
+	}
+
+	if address != andrew.DefaultAddress {
+		t.Errorf("address should be %s, received %q", andrew.DefaultAddress, address)
+	}
+
+	if baseUrl != andrew.DefaultBaseUrl {
+		t.Errorf("baseUrl should be %s, received %q", andrew.DefaultBaseUrl, baseUrl)
+	}
+
+}
+
+func TestMainCalledWithArgsOverridesDefaults(t *testing.T) {
+	t.Parallel()
+
+	contentRoot, address, baseUrl := andrew.ParseArgs([]string{"1", "2", "3"})
+
+	if contentRoot != "1" {
+		t.Errorf("contentroot should be %s, received %q", "1", contentRoot)
+	}
+
+	if address != "2" {
+		t.Errorf("address should be %s, received %q", "2", address)
+	}
+
+	if baseUrl != "3" {
+		t.Errorf("baseUrl should be %s, received %q", "3", baseUrl)
+	}
+
+}
+
+func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
+	t.Parallel()
+	args := []string{".", "notanipaddress"}
+	nullLogger := new(bytes.Buffer)
+
+	// No need to check whether `recover()` is nil. Just turn off the panic.
+	defer func() {
+		err := recover()
+		if err == nil {
+			t.Fatalf("Expected panic with invalid address, received %v", err)
+		}
+	}()
+
+	andrew.Main(args, nullLogger)
+
+}
+
+func TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime(t *testing.T) {
+
+	expected := `
+<buncha hrefs>	
+`
+	contentRoot := fstest.MapFS{
+		"b.html":     &fstest.MapFile{ModTime: time.Date(2024, time.March, 29, 6, 0, 0, 0, time.UTC)},
+		"a.html":     &fstest.MapFile{ModTime: time.Date(2024, time.March, 29, 5, 0, 0, 0, time.UTC)},
+		"index.html": &fstest.MapFile{Data: []byte("{{ .AndrewIndexBody }}")},
+	}
+
+	page := andrew.AndrewPage{Path: path}
+	received := page.GenerateAndrewIndexBody("index.html")
+
+	if expected != received {
+		t.Errorf(cmp.Diff(expected, received))
+	}
+
 }
 
 // startAndrewServer starts an andrew and returns the localhost url that you can run http gets against
