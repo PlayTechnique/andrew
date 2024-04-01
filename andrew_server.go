@@ -83,8 +83,19 @@ func ParseArgs(args []string) (string, string, string) {
 func (a AndrewServer) Serve(w http.ResponseWriter, r *http.Request) {
 	pagePath := path.Clean(r.RequestURI)
 
-	if strings.HasSuffix(pagePath, "/") {
+	// Ensure the pagePath is relative to the root of a.SiteFiles.
+	// This involves trimming a leading slash if present.
+	pagePath = strings.TrimPrefix(pagePath, "/")
+
+	maybeDir, _ := fs.Stat(a.SiteFiles, pagePath)
+
+	switch {
+	case maybeDir != nil && maybeDir.IsDir():
+		pagePath = pagePath + "/index.html"
+	case strings.HasSuffix(pagePath, "/"):
 		pagePath = pagePath + "index.html"
+	case pagePath == "":
+		pagePath = pagePath + "/index.html"
 	}
 
 	if isIndexPage(pagePath) {
