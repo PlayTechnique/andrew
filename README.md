@@ -71,4 +71,4 @@ contains a date but not a time, Andrew assumes the page was created at midnight.
 When the endpoint `baseUrl/sitemap.xml` is visited, Andrew will automatically generate a sitemap containing paths to all html pages.
 
 ## server
-`go install github.com/PlayTechnique/andrew/cmd`
+`go install github.com/playtechnique/andrew/cmd`

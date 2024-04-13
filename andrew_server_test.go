@@ -162,6 +162,45 @@ func TestGetPagesWithoutSpecifyingPageDefaultsToIndexHtml(t *testing.T) {
 	}
 }
 
+func TestGettingADirectoryDefaultsToIndexHtml(t *testing.T) {
+	t.Parallel()
+
+	expected := []byte(`
+<!DOCTYPE html>
+<head>
+<title>index title</title>
+</head>
+<body>
+</body>
+	`)
+
+	contentRoot := t.TempDir()
+	os.MkdirAll(contentRoot+"/pages", 0o755)
+
+	// fstest.MapFS does not create directory-like objects, so we need a real file system in this test.
+	err := os.WriteFile(contentRoot+"/pages/index.html", expected, 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testUrl := startAndrewServer(t, os.DirFS(contentRoot))
+
+	resp, err := http.Get(testUrl + "/pages/")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !slices.Equal(received, expected) {
+		t.Fatalf("Expected %q, received %q", expected, received)
+	}
+}
+
 func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 	t.Parallel()
 
@@ -411,8 +450,8 @@ func TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime(t *testing.T) {
 		"index.html": &fstest.MapFile{Data: []byte("{{ .AndrewIndexBody }}")},
 	}
 
-	page := andrew.AndrewPage{Path: path}
-	received := page.GenerateAndrewIndexBody("index.html")
+	page := andrew.NewPage(contentRoot, "index.html")
+	received := page.GenerateAndrewIndexBody()
 
 	if expected != received {
 		t.Errorf(cmp.Diff(expected, received))
