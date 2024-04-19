@@ -174,10 +174,10 @@ func TestGettingADirectoryDefaultsToIndexHtml(t *testing.T) {
 </body>
 	`)
 
+	// fstest.MapFS does not create directory-like objects, so we need a real file system in this test.
 	contentRoot := t.TempDir()
 	os.MkdirAll(contentRoot+"/pages", 0o755)
 
-	// fstest.MapFS does not create directory-like objects, so we need a real file system in this test.
 	err := os.WriteFile(contentRoot+"/pages/index.html", expected, 0o755)
 	if err != nil {
 		t.Fatal(err)
@@ -292,7 +292,6 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 	}
 
 	testUrl := startAndrewServer(t, contentRoot)
-
 	resp, err := http.Get(testUrl + "/parentDir/index.html")
 
 	if err != nil {
@@ -305,6 +304,9 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The test is displaying parentDir/childDir/1-2-3.html as its link; this is because generateAndrewIndexBody now returns AndrewPages,
+	// and the link that these maintain internally is their URL. Instead of the URL, we need a link path.
+	// GetSiblingsAndChildren maintains a localContentRoot variable that contains the directory we are residing within
 	expectedIndex := `
 <!doctype HTML>
 <head> </head>
@@ -439,21 +441,53 @@ func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
 
 }
 
+// TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime is verifying that
+// when the list of links andrew generates for the {{.AndrewIndexBody}} are
+// sorted by mtime, not using the ascii sorting order.
 func TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime(t *testing.T) {
 
 	expected := `
 <buncha hrefs>	
 `
-	contentRoot := fstest.MapFS{
-		"b.html":     &fstest.MapFile{ModTime: time.Date(2024, time.March, 29, 6, 0, 0, 0, time.UTC)},
-		"a.html":     &fstest.MapFile{ModTime: time.Date(2024, time.March, 29, 5, 0, 0, 0, time.UTC)},
-		"index.html": &fstest.MapFile{Data: []byte("{{ .AndrewIndexBody }}")},
+
+	contentRoot := t.TempDir()
+
+	// fstest.MapFS does not enforce file permissions, so we need a real file system in this test.
+	// above might be wrong
+	err := os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewIndexBody}}"), 0o700)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	page := andrew.NewPage(contentRoot, "index.html")
-	received := page.GenerateAndrewIndexBody()
+	err = os.WriteFile(contentRoot+"/a.html", []byte{}, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if expected != received {
+	err = os.WriteFile(contentRoot+"/b.html", []byte{}, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// This test requires having two files which are in one order when sorted
+	// ascii-betically and in another order by date time, so that we can tell
+	// what file attribute andrew is actually sorting on.
+	now := time.Now()
+	older := now.Add(-10 * time.Minute)
+
+	os.Chtimes(contentRoot+"/a.html", now, now)
+	os.Chtimes(contentRoot+"/b.html", older, older)
+
+	server := andrew.AndrewServer{SiteFiles: os.DirFS(contentRoot)}
+	page, err := andrew.NewPage(server, "index.html")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received := page.Content
+
+	if expected != string(received) {
 		t.Errorf(cmp.Diff(expected, received))
 	}
 
