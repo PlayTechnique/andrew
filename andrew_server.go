@@ -9,14 +9,17 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"text/template"
 )
 
+// AndrewServer holds a reference to the paths in the fs.FS that correspond to
+// each page that should be served.
+// When a URL is requested, AndrewServer creates an AndrewPage for the file referenced
+// in that URL and then serves the AndrewPage.
 type AndrewServer struct {
-	SiteFiles               fs.FS
-	BaseUrl                 string
-	Address                 string
-	andrewindexbodytemplate string
+	SiteFiles               fs.FS  //The files being served
+	BaseUrl                 string //The URL used in any links generated for this website that should contain the hostname.
+	Address                 string //IpAddress:Port combo to be served on.
+	andrewindexbodytemplate string //The string we're searching for inside a Page that should be replaced with a template. Mightn't belong in the Server.
 }
 
 const (
@@ -34,6 +37,7 @@ func Main(args []string, printDest io.Writer) int {
 	- contentRoot: The root directory of your content. Defaults to '.' if not specified.
 	- address: The address to bind to. Defaults to 'localhost:8080' if not specified. If in doubt, you probably want 0.0.0.0:<something>
 	- base URL: The protocol://hostname for your server. Defaults to 'http://localhost:8080' if not specified. Used to generate sitemap/rss feed accurately.
+	
 	-h, --help: Display this help message.
 `
 
@@ -77,9 +81,10 @@ func ParseArgs(args []string) (string, string, string) {
 	return contentRoot, address, baseUrl
 }
 
-// The Serve function handles requests for any URL. It checks whether the request is for
-// an index.html page or for anything else. The special behaviour for the index page is documented
-// below.
+// Serve handles requests for any URL. It checks whether the request is for
+// an index.html page or for anything else (another page, css, javascript etc).
+// If a directory is requested, Serve defaults to finding the index.html page
+// within that directory. Detecting this case for
 func (a AndrewServer) Serve(w http.ResponseWriter, r *http.Request) {
 	pagePath := path.Clean(r.RequestURI)
 
@@ -89,34 +94,22 @@ func (a AndrewServer) Serve(w http.ResponseWriter, r *http.Request) {
 
 	maybeDir, _ := fs.Stat(a.SiteFiles, pagePath)
 
+	// In most cases, pagePath does not need to be manipulated.
+	// There are three cases where we need to append "index.html" to the pagePath, though:
+	// 1. If we receive a request for a directory within the file system, the default file to serve is index.html
+	// 2. If we receive a request for www.example.com/, pagePath will be /. This means "please serve the index.html
+	//    in whatever directory the web server is started from."
+	// 3. If we receive a request for www.example.com, pagePath will be an empty string. We should serve index.html.
 	switch {
 	case maybeDir != nil && maybeDir.IsDir():
 		pagePath = pagePath + "/index.html"
 	case strings.HasSuffix(pagePath, "/"):
-		pagePath = pagePath + "index.html"
+		pagePath = "index.html"
 	case pagePath == "":
-		pagePath = pagePath + "/index.html"
+		pagePath = "index.html"
 	}
 
-	if isIndexPage(pagePath) {
-		a.serveIndexPage(w, r, pagePath)
-		return
-	}
-
-	a.serveOther(w, pagePath)
-}
-
-// serveIndexPage treats the index page as a template with a single data element: AndrewIndexBody.
-// If the page does not contain this element, it is written to the http.ResponseWriter as it is.
-// If the page does contain an AndrewIndexBody element, serveIndexPage calls out to buildIndexBody to create
-// the correct body of the page and then renders it into the AndrewIndexBody.
-func (a AndrewServer) serveIndexPage(w http.ResponseWriter, _ *http.Request, pagePath string) {
-
-	// /index.html becomes index.html
-	// /articles/page.html becomes articles/page.html
-	// without this the paths aren't found properly inside the fs.
-	pagePath = strings.TrimPrefix(pagePath, "/")
-	pageContent, err := fs.ReadFile(a.SiteFiles, pagePath)
+	page, err := NewPage(a, pagePath)
 
 	if err != nil {
 		message, status := CheckPageErrors(err)
@@ -125,97 +118,14 @@ func (a AndrewServer) serveIndexPage(w http.ResponseWriter, _ *http.Request, pag
 		return
 	}
 
-	t, err := template.New(pagePath).Parse(string(pageContent))
-	if err != nil {
-		panic(err)
-	}
-
-	indexBody, err := a.buildAndrewIndexBody(pagePath)
-
-	if err != nil {
-		panic(err)
-	}
-
-	body := strings.Join(indexBody, "\n")
-
-	//write the executed template directly to the http writer
-	err = t.Execute(w, map[string]string{a.andrewindexbodytemplate: body})
-
-	if err != nil {
-		panic(err)
-	}
+	a.serve(w, page)
 }
 
-// buildAndrewIndexBody receives the path to a file, currently normally an index file.
-// It traverses the file system starting at the directory containing
-// that file, finds all html files that are _not_ index.html files and returns them
-// as a list of html links to those pages.
-func (a AndrewServer) buildAndrewIndexBody(indexPagePath string) ([]string, error) {
-
-	html := []string{}
-
-	//Given a dir structure <site root>/parentDir/index.html, localContentRoot is parentDir/
-	localContentRoot := path.Dir(indexPagePath)
-	linkNumber := 0
-
-	err := fs.WalkDir(a.SiteFiles, localContentRoot, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() || strings.Contains(path, "index.html") {
-			return nil
-		}
-
-		htmlSuffix := ".html"
-		if filepath.Ext(path) == htmlSuffix {
-			htmlContent, err := fs.ReadFile(a.SiteFiles, path)
-
-			if err != nil {
-				return err
-			}
-
-			title, err := getTitle(path, htmlContent)
-
-			if err != nil {
-				return err
-			}
-
-			if !strings.HasSuffix(localContentRoot, string(filepath.Separator)) {
-				localContentRoot += string(filepath.Separator)
-			}
-
-			linkPath := strings.TrimPrefix(path, localContentRoot)
-
-			// TODO: extract the formatting into its own function.
-			// <a href=path/to/foo.html>what's the title?</a>
-			link := fmt.Sprintf("<a class=\"andrewindexbodylink\" id=\"andrewindexbodylink%s\" href=\"%s\">%s</a>", fmt.Sprint(linkNumber), linkPath, title)
-			linkNumber = linkNumber + 1
-
-			html = append(html, link)
-		}
-
-		return nil
-	})
-
-	return html, err
-
-}
-
-// serveOther writes to the ResponseWriter any arbitrary html file, or css, javascript, images etc.
-func (a AndrewServer) serveOther(w http.ResponseWriter, pagePath string) {
-	pagePath = strings.TrimPrefix(pagePath, "/")
-	pageContent, err := fs.ReadFile(a.SiteFiles, pagePath)
-
-	if err != nil {
-		message, status := CheckPageErrors(err)
-		w.WriteHeader(status)
-		fmt.Fprint(w, message)
-		return
-	}
+// serve writes to the ResponseWriter any arbitrary html file, or css, javascript, images etc.
+func (a AndrewServer) serve(w http.ResponseWriter, page AndrewPage) {
 
 	// Determine the content type based on the file extension
-	switch filepath.Ext(pagePath) {
+	switch filepath.Ext(page.UrlPath) {
 	case ".css":
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 	case ".html":
@@ -235,7 +145,7 @@ func (a AndrewServer) serveOther(w http.ResponseWriter, pagePath string) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, string(pageContent))
+	fmt.Fprint(w, page.Content)
 
 }
 
@@ -243,6 +153,7 @@ func (a AndrewServer) serveOther(w http.ResponseWriter, pagePath string) {
 // into the appropriate http error code and a message.
 // If no specific error is found, a 500 is the default value returned.
 func CheckPageErrors(err error) (string, int) {
+
 	// if a file doesn't exist
 	// http 404
 	if os.IsNotExist(err) {
@@ -260,9 +171,37 @@ func CheckPageErrors(err error) (string, int) {
 	return "500 something went wrong", http.StatusInternalServerError
 }
 
-// isIndexPage is a helper function to check if a file being requested
-// is an index.html file.
-func isIndexPage(uri string) bool {
-	isIndex := strings.HasSuffix(uri, "index.html")
-	return isIndex
+// GetSiblingsAndChildren accepts a path to a file and a filter function.
+// It infers the directory that the file resides within, and then recurses the Server's fs.FS
+// to return all of the files both in the same directory and further down in the directory structure.
+// To filter these down to only files that you care about, pass in a filter function.
+// The filter is called in the context of fs.WalkDir. It is handed fs.WalkDir's path and directory entry,
+// in that order, and is expected to return a boolean false.
+// If that error is nil then the current file being evaluated is skipped for consideration.
+func (a AndrewServer) GetSiblingsAndChildren(pagePath string, filter func(string, fs.DirEntry) bool) ([]AndrewPage, error) {
+	pages := []AndrewPage{}
+	localContentRoot := path.Dir(pagePath)
+
+	err := fs.WalkDir(a.SiteFiles, localContentRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if filter(path, d) {
+			// links require a URL relative to the page we're discovering siblings from, not from
+			// the root of the file system
+			page, err := NewPage(a, path)
+			page = page.SetUrlPath(strings.TrimPrefix(path, localContentRoot+"/"))
+
+			if err != nil {
+				return err
+			}
+
+			pages = append(pages, page)
+		}
+
+		return nil
+	})
+
+	return pages, err
 }
