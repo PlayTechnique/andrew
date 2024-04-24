@@ -19,23 +19,24 @@ type AndrewServer struct {
 	SiteFiles               fs.FS  //The files being served
 	BaseUrl                 string //The URL used in any links generated for this website that should contain the hostname.
 	Address                 string //IpAddress:Port combo to be served on.
-	andrewindexbodytemplate string //The string we're searching for inside a Page that should be replaced with a template. Mightn't belong in the Server.
+	Andrewindexbodytemplate string //The string we're searching for inside a Page that should be replaced with a template. Mightn't belong in the Server.
 }
 
 const (
-	DefaultContentRoot = "."
-	DefaultAddress     = ":8080"
-	DefaultBaseUrl     = "http://localhost:8080"
+	AndrewIndexBodyTemplate = "AndrewIndexBody"
+	DefaultContentRoot      = "."
+	DefaultAddress          = ":8080"
+	DefaultBaseUrl          = "http://localhost:8080"
 )
 
 func NewAndrewServer(contentRoot fs.FS, address string, baseUrl string) (AndrewServer, error) {
-	return AndrewServer{SiteFiles: contentRoot, andrewindexbodytemplate: "AndrewIndexBody", Address: address, BaseUrl: baseUrl}, nil
+	return AndrewServer{SiteFiles: contentRoot, Andrewindexbodytemplate: "AndrewIndexBody", Address: address, BaseUrl: baseUrl}, nil
 }
 
 func Main(args []string, printDest io.Writer) int {
 	help := `Usage: andrew [contentRoot] [address] [baseUrl]
 	- contentRoot: The root directory of your content. Defaults to '.' if not specified.
-	- address: The address to bind to. Defaults to 'localhost:8080' if not specified. If in doubt, you probably want 0.0.0.0:<something>
+	- address: The address to bind to. Defaults to 'localhost:8080' if not specified. If in doubt, you probably want '0.0.0.0:<some free port>'
 	- base URL: The protocol://hostname for your server. Defaults to 'http://localhost:8080' if not specified. Used to generate sitemap/rss feed accurately.
 	
 	-h, --help: Display this help message.

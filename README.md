@@ -59,8 +59,17 @@ if fanfics/index.html contains `{{ .AndrewIndexBody }}`, that'll be replaced wit
 If a page contains a `<title>` element, Andrew picks it up and uses that as the name of a link.
 If the page does not contain a `<title>` element, then Andrew will use the file name of that file as the link name.
 
+## meta elements
+Andrew parses meta tags and makes them accessible on its AndrewPage object.
+
+For a meta element to be picked up, it must be formatted with andrew- prepending the meta element's name, like this `<meta name="andrew-<rest of the name>" value="your-value">`
+
+### valid meta elements
+<meta name="andrew-created-on" value="2024-03-12">
+<meta name="andrew-tag" value="diary entry">
+
 ## ordering of pages
-If a page contains the meta element `<meta name=andrew-created-on value="2024-03-12>` in its `<head>`, Andrew orders on these tags.
+If a page contains the meta element `<meta name=andrew-created-on value="2024-03-12">` in its `<head>`, Andrew orders on these tags.
 If the page does not contain the meta element, it uses the mtime of the file to try and determine ordering. This means that if you edit a page
 that does not contain the `andrew-created-on` element, then you will push it back to the top of the list.
 

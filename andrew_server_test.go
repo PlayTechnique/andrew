@@ -478,7 +478,7 @@ func TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime(t *testing.T) {
 	os.Chtimes(contentRoot+"/a.html", now, now)
 	os.Chtimes(contentRoot+"/b.html", older, older)
 
-	server := andrew.AndrewServer{SiteFiles: os.DirFS(contentRoot)}
+	server := andrew.AndrewServer{SiteFiles: os.DirFS(contentRoot), Andrewindexbodytemplate: andrew.AndrewIndexBodyTemplate}
 	page, err := andrew.NewPage(server, "index.html")
 
 	if err != nil {

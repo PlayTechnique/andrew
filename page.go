@@ -16,8 +16,8 @@ type AndrewPage struct {
 	Title string
 	// According to https://datatracker.ietf.org/doc/html/rfc1738#section-3.1, the subsection of a
 	// URL after the procol://hostname is the UrlPath.
-	UrlPath string
-	//
+	UrlPath     string
+	Meta        []string
 	Content     string
 	PublishTime time.Time
 }
@@ -56,6 +56,8 @@ func NewPage(server AndrewServer, pageUrl string) (AndrewPage, error) {
 			return AndrewPage{}, err
 		}
 	}
+
+	// pageMeta := getMeta(pagePath, pageContent)
 
 	return AndrewPage{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle}, nil
 }
@@ -102,7 +104,7 @@ func buildAndrewIndexBody(server AndrewServer, startingPageUrl string, pageConte
 		panic(err)
 	}
 
-	err = t.Execute(&templateBuffer, map[string]string{server.andrewindexbodytemplate: links.String()})
+	err = t.Execute(&templateBuffer, map[string]string{server.Andrewindexbodytemplate: links.String()})
 
 	if err != nil {
 		//TODO: swap this for proper error handling
@@ -121,39 +123,41 @@ func buildAndrewIndexLink(page AndrewPage, cssIdNumber int) []byte {
 	return b
 }
 
-// titleFromHTMLTitleElement returns the content of the "title" tag or an empty string.
-// The error value "no title element found" is returned if title is not discovered
-// or is set to an empty string.
-func titleFromHTMLTitleElement(fileContent []byte) (string, error) {
-
-	doc, err := html.Parse(bytes.NewReader(fileContent))
-	if err != nil {
-		return "", err
-	}
-
-	title := getAttribute("title", doc)
-	if title == "" {
-		return "", fmt.Errorf("no title element found")
-	}
-	return title, nil
-}
-
 // getAttribute recursively descends an html node tree, searching for
 // the attribute provided. Once the attribute is discovered, it returns.
-func getAttribute(attribute string, n *html.Node) string {
-	if n.Type == html.ElementNode && n.Data == attribute {
-		if n.FirstChild != nil {
-			return n.FirstChild.Data
+func getAttributes(attribute string, n *html.Node) []string {
+	var attributes []string
+
+	//n.Type no longer matches html.ElementNode; n is now a document, not a node
+	if n.Type == html.ElementNode {
+		for _, a := range n.Attr {
+			if a.Key == attribute {
+				attributes = append(attributes, a.Val)
+			}
 		}
 	}
 
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		result := getAttribute(attribute, c)
-		if result != "" {
-			return result
-		}
+		attributes = append(attributes, getAttributes(attribute, c)...)
 	}
-	return ""
+
+	return attributes
+}
+
+func getMeta(htmlContent []byte) ([]string, error) {
+	element := "meta"
+
+	doc, err := html.Parse(bytes.NewReader(htmlContent))
+	if err != nil {
+		return []string{}, err
+	}
+
+	meta := getAttributes(element, doc)
+
+	if len(meta) == 0 {
+		return meta, fmt.Errorf("no %s element found", element)
+	}
+	return meta, nil
 }
 
 func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
@@ -167,4 +171,21 @@ func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
 		title = path.Base(htmlFilePath)
 	}
 	return title, nil
+}
+
+// titleFromHTMLTitleElement returns the content of the "title" tag or an empty string.
+// The error value "no title element found" is returned if title is not discovered
+// or is set to an empty string.
+func titleFromHTMLTitleElement(fileContent []byte) (string, error) {
+
+	doc, err := html.Parse(bytes.NewReader(fileContent))
+	if err != nil {
+		return "", err
+	}
+
+	title := getAttributes("title", doc)
+	if len(title) == 0 {
+		return "", fmt.Errorf("no title element found")
+	}
+	return title[0], nil
 }
