@@ -28,10 +28,13 @@ const (
 	DefaultBaseUrl     = "http://localhost:8080"
 )
 
-func NewAndrewServer(contentRoot fs.FS, address string, baseUrl string) (AndrewServer, error) {
-	return AndrewServer{SiteFiles: contentRoot, andrewindexbodytemplate: "AndrewIndexBody", Address: address, BaseUrl: baseUrl}, nil
+// NewAndrewServer is a constructor. Its primary role is setting the default andrewindexbodytemplate.
+// Returns an [AndrewServer].
+func NewAndrewServer(contentRoot fs.FS, address string, baseUrl string) AndrewServer {
+	return AndrewServer{SiteFiles: contentRoot, andrewindexbodytemplate: "AndrewIndexBody", Address: address, BaseUrl: baseUrl}
 }
 
+// Main is the implementation of main. It's here to get main's logic into a testable package.
 func Main(args []string, printDest io.Writer) int {
 	help := `Usage: andrew [contentRoot] [address] [baseUrl]
 	- contentRoot: The root directory of your content. Defaults to '.' if not specified.
@@ -61,6 +64,7 @@ func Main(args []string, printDest io.Writer) int {
 	return 0
 }
 
+// ParseArgs ensures command line arguments override the default settings for a new Andrew server.
 func ParseArgs(args []string) (string, string, string) {
 	contentRoot := DefaultContentRoot
 	address := DefaultAddress

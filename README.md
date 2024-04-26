@@ -51,8 +51,8 @@ if fanfics/index.html contains `{{ .AndrewIndexBody }}`, that'll be replaced wit
 
 ```html
     <a class="andrewindexbodylink" id="andrewindexbodylink0" href="story-1/potter-and-draco.html">Potter and Draco</a>
-    <a class="andrewindexbodylink" id="andrewindexbodylink0" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt1.html</a>
-    <a class="andrewindexbodylink" id="andrewindexbodylink0" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt2.html</a>
+    <a class="andrewindexbodylink" id="andrewindexbodylink1" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt1.html</a>
+    <a class="andrewindexbodylink" id="andrewindexbodylink2" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt2.html</a>
 ```
 
 ## page titles
