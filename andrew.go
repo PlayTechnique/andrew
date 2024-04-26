@@ -13,8 +13,7 @@ import (
 //
 // address - some ip:port combination. The AndrewServer
 func ListenAndServe(contentRoot fs.FS, address string, baseUrl string) error {
-
-	andrewServer := NewAndrewServer(contentRoot, address, baseUrl)
+	andrewServer := NewServer(contentRoot, address, baseUrl)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", andrewServer.Serve)

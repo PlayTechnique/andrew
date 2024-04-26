@@ -32,7 +32,7 @@ type AndrewPage struct {
 
 // NewPage creates a Page from a URL by reading the corresponding file from the
 // AndrewServer's SiteFiles.
-func NewPage(server AndrewServer, pageUrl string) (AndrewPage, error) {
+func NewPage(server Server, pageUrl string) (AndrewPage, error) {
 	pageContent, err := fs.ReadFile(server.SiteFiles, pageUrl)
 	if err != nil {
 		return AndrewPage{}, err
@@ -41,14 +41,12 @@ func NewPage(server AndrewServer, pageUrl string) (AndrewPage, error) {
 	// The fs.FS documentation notes that paths should not start with a leading slash.
 	pagePath := strings.TrimPrefix(pageUrl, "/")
 	pageTitle, err := getTitle(pagePath, pageContent)
-
 	if err != nil {
 		return AndrewPage{}, err
 	}
 
 	if strings.Contains(pageUrl, indexIdentifier) {
 		pageContent, err = buildAndrewIndexBody(server, pageUrl, pageContent)
-
 		if err != nil {
 			return AndrewPage{}, err
 		}
@@ -66,8 +64,7 @@ func (a AndrewPage) SetUrlPath(urlPath string) AndrewPage {
 // It traverses the file system starting at the directory containing
 // that file, finds all html files that are _not_ index.html files and returns them
 // as a list of html links to those pages.
-func buildAndrewIndexBody(server AndrewServer, startingPageUrl string, pageContent []byte) ([]byte, error) {
-
+func buildAndrewIndexBody(server Server, startingPageUrl string, pageContent []byte) ([]byte, error) {
 	filterIndexFiles := func(path string, d fs.DirEntry) bool {
 		if strings.Contains(path, "index.html") {
 			return false
@@ -81,7 +78,6 @@ func buildAndrewIndexBody(server AndrewServer, startingPageUrl string, pageConte
 	}
 
 	siblings, err := server.GetSiblingsAndChildren(startingPageUrl, filterIndexFiles)
-
 	if err != nil {
 		return pageContent, err
 	}
@@ -95,18 +91,16 @@ func buildAndrewIndexBody(server AndrewServer, startingPageUrl string, pageConte
 	}
 
 	templateBuffer := bytes.Buffer{}
-	//execute template here, write it to something and then return it as the pageContent
+	// execute template here, write it to something and then return it as the pageContent
 	t, err := template.New(startingPageUrl).Parse(string(pageContent))
-
 	if err != nil {
-		//TODO: swap this for proper error handling
+		// TODO: swap this for proper error handling
 		panic(err)
 	}
 
 	err = t.Execute(&templateBuffer, map[string]string{server.andrewindexbodytemplate: links.String()})
-
 	if err != nil {
-		//TODO: swap this for proper error handling
+		// TODO: swap this for proper error handling
 		panic(err)
 	}
 	return templateBuffer.Bytes(), nil
@@ -123,7 +117,6 @@ func buildAndrewIndexLink(page AndrewPage, cssIdNumber int) []byte {
 // The error value "no title element found" is returned if title is not discovered
 // or is set to an empty string.
 func titleFromHTMLTitleElement(fileContent []byte) (string, error) {
-
 	doc, err := html.Parse(bytes.NewReader(fileContent))
 	if err != nil {
 		return "", err
@@ -156,7 +149,6 @@ func getAttribute(attribute string, n *html.Node) string {
 
 func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
 	title, err := titleFromHTMLTitleElement(htmlContent)
-
 	if err != nil {
 		if err.Error() != "no title element found" {
 			return "", err

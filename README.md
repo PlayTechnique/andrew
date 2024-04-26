@@ -5,6 +5,10 @@ with the contents of any html files that are below the current index.html in the
 
 It's grown a little to include a small sitemap generator.  
 
+## To install it
+
+`go install github.com/playtechnique/andrew/cmd/andrew`
+
 ## invocation
 andrew -h to see the help
 
@@ -65,5 +69,3 @@ In this release, Andrew serves you page links ascii-betically.
 ## sitemap.xml
 When the endpoint `baseUrl/sitemap.xml` is visited, Andrew will automatically generate a sitemap containing paths to all html pages.
 
-## server
-`go install github.com/playtechnique/andrew/cmd`
