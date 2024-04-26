@@ -3,6 +3,7 @@ package andrew_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net"
@@ -164,6 +165,7 @@ func TestServerServesRequestedPage(t *testing.T) {
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
+	fmt.Printf("Server running on %s\n", s.BaseUrl)
 
 	resp, err := http.Get(s.BaseUrl + "/page.html")
 	if err != nil {
@@ -197,6 +199,7 @@ func TestServerServesIndexPageByDefault(t *testing.T) {
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
+	fmt.Printf("Server running on %s\n", s.BaseUrl)
 
 	resp, err := http.Get(s.BaseUrl)
 	if err != nil {
@@ -233,6 +236,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T)
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
+	fmt.Printf("Server running on %s\n", s.BaseUrl)
 
 	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
@@ -277,6 +281,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
+	fmt.Printf("Server running on %s\n", s.BaseUrl)
 
 	resp, err := http.Get(s.BaseUrl + "/parentDir/index.html")
 	if err != nil {
@@ -327,6 +332,7 @@ func TestCorrectMimeTypeIsSetForKnownFileTypes(t *testing.T) {
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
+	fmt.Printf("Server running on %s\n", s.BaseUrl)
 
 	for page := range contentRoot {
 		resp, err := http.Get(s.BaseUrl + "/" + page)
@@ -439,6 +445,8 @@ func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
 			panic(err)
 		}
 	}()
+
+	fmt.Printf("Running server on %s\n", addr)
 
 	return server
 }
