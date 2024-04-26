@@ -34,7 +34,6 @@ func TestServerRespondsStatusOKForExistingPage(t *testing.T) {
 			Data: expected,
 		},
 	})
-	defer s.Close()
 
 	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
@@ -57,7 +56,7 @@ func TestGetForNonExistentPageGeneratesStatusNotFound(t *testing.T) {
 	t.Parallel()
 
 	s := newTestAndrewServer(t, fstest.MapFS{})
-	defer s.Close()
+
 	resp, err := http.Get(s.BaseUrl + "/page.html")
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +78,7 @@ func TestGetForUnreadablePageGeneratesStatusForbidden(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := newTestAndrewServer(t, os.DirFS(contentRoot))
-	defer s.Close()
+
 	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +102,6 @@ func TestGetSitemapReturnsTheSitemap(t *testing.T) {
 	t.Parallel()
 
 	s := newTestAndrewServer(t, fstest.MapFS{})
-	defer s.Close()
 
 	resp, err := http.Get(s.BaseUrl + "/sitemap.xml")
 	if err != nil {
@@ -142,7 +140,7 @@ func TestGettingADirectoryDefaultsToIndexHtml(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := newTestAndrewServer(t, os.DirFS(contentRoot))
-	defer s.Close()
+
 	resp, err := http.Get(s.BaseUrl + "/pages/")
 	if err != nil {
 		t.Fatal(err)
@@ -166,7 +164,7 @@ func TestServerServesRequestedPage(t *testing.T) {
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
-	defer s.Close()
+
 	resp, err := http.Get(s.BaseUrl + "/page.html")
 	if err != nil {
 		t.Fatal(err)
@@ -199,7 +197,7 @@ func TestServerServesIndexPageByDefault(t *testing.T) {
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
-	defer s.Close()
+
 	resp, err := http.Get(s.BaseUrl)
 	if err != nil {
 		t.Fatal(err)
@@ -215,7 +213,7 @@ func TestServerServesIndexPageByDefault(t *testing.T) {
 	}
 }
 
-func TestAndrewIndexBodyIsGeneratedCorrectlyInTopLevelIndexHtmlPage(t *testing.T) {
+func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := fstest.MapFS{
@@ -235,7 +233,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInTopLevelIndexHtmlPage(t *testing.T
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
-	defer s.Close()
+
 	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
 		t.Fatal(err)
@@ -279,7 +277,6 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
-	defer s.Close()
 
 	resp, err := http.Get(s.BaseUrl + "/parentDir/index.html")
 	if err != nil {
@@ -330,7 +327,6 @@ func TestCorrectMimeTypeIsSetForKnownFileTypes(t *testing.T) {
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
-	defer s.Close()
 
 	for page := range contentRoot {
 		resp, err := http.Get(s.BaseUrl + "/" + page)
@@ -352,7 +348,7 @@ func TestCorrectMimeTypeIsSetForKnownFileTypes(t *testing.T) {
 	}
 }
 
-func TestMainCalledWithHelpDisplaysHelp(t *testing.T) {
+func TestMainCalledWithHelpOptionDisplaysHelp(t *testing.T) {
 	t.Parallel()
 
 	args := []string{"--help"}
