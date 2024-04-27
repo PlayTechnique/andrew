@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/playtechnique/andrew"
@@ -165,7 +166,7 @@ func TestServerServesRequestedPage(t *testing.T) {
 	}
 
 	s := newTestAndrewServer(t, contentRoot)
-	fmt.Printf("Server running on %s\n", s.BaseUrl)
+	t.Logf("Server running on %s\n", s.BaseUrl)
 
 	resp, err := http.Get(s.BaseUrl + "/page.html")
 	if err != nil {
@@ -428,25 +429,43 @@ func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
 func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
 	t.Helper()
 
-	listener, err := net.Listen("tcp", ":0")
+	// Listen on IPv4 localhost on any available port
+	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	listener.Close()
 	addr := listener.Addr().String()
+	listener.Close()
+
 	server := andrew.NewServer(contentRoot, addr, "http://"+addr)
 
 	go func() {
-		// how can I get a random free port here for the server to start on, and return it for the tests
-		// add a server object to track this datum and for convenience methods like "shut down the server".
-		err := server.ListenAndServe()
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			panic(err)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Log("Server stopped with error:", err)
 		}
 	}()
 
-	fmt.Printf("Running server on %s\n", addr)
+	// Ensure server is ready by attempting to dial the server repeatedly
+	ready := make(chan bool)
+	go func() {
+		defer close(ready)
+		for i := 0; i < 10; i++ {
+			conn, err := net.Dial("tcp", addr)
+			if err == nil {
+				conn.Close()
+				ready <- true
+				return
+			}
+			time.Sleep(50 * time.Millisecond) // Brief sleep to wait for server to be ready
+		}
+		t.Log("Failed to connect to server after retries:", addr)
+	}()
+
+	// Wait for server to be confirmed ready
+	<-ready
+
+	t.Logf("Running server on %s\n", addr)
 
 	return server
 }
