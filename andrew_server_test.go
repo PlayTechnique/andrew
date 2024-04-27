@@ -428,7 +428,7 @@ func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
 func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
 	t.Helper()
 
-	listener, err := net.Listen("tcp", "localhost:0")
+	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatal(err)
 	}
