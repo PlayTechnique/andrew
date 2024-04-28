@@ -13,8 +13,8 @@ import (
 
 // Server holds a reference to the paths in the fs.FS that correspond to
 // each page that should be served.
-// When a URL is requested, Server creates an AndrewPage for the file referenced
-// in that URL and then serves the AndrewPage.
+// When a URL is requested, Server creates an Page for the file referenced
+// in that URL and then serves the Page.
 type Server struct {
 	SiteFiles               fs.FS  // The files being served
 	BaseUrl                 string // The URL used in any links generated for this website that should contain the hostname.
@@ -96,7 +96,7 @@ func (a *Server) Close() error {
 }
 
 // serve writes to the ResponseWriter any arbitrary html file, or css, javascript, images etc.
-func (a Server) serve(w http.ResponseWriter, page AndrewPage) {
+func (a Server) serve(w http.ResponseWriter, page Page) {
 	// Determine the content type based on the file extension
 	switch filepath.Ext(page.UrlPath) {
 	case ".css":
@@ -149,8 +149,8 @@ func CheckPageErrors(err error) (string, int) {
 // The filter is called in the context of fs.WalkDir. It is handed fs.WalkDir's path and directory entry,
 // in that order, and is expected to return a boolean false.
 // If that error is nil then the current file being evaluated is skipped for consideration.
-func (a Server) GetSiblingsAndChildren(pagePath string, filter func(string, fs.DirEntry) bool) ([]AndrewPage, error) {
-	pages := []AndrewPage{}
+func (a Server) GetSiblingsAndChildren(pagePath string, filter func(string, fs.DirEntry) bool) ([]Page, error) {
+	pages := []Page{}
 	localContentRoot := path.Dir(pagePath)
 
 	err := fs.WalkDir(a.SiteFiles, localContentRoot, func(path string, d fs.DirEntry, err error) error {

@@ -55,7 +55,7 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 	return Page{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle}, nil
 }
 
-// SetUrlPath updates the UrlPath on a pre-existing AndrewPage.
+// SetUrlPath updates the UrlPath on a pre-existing Page.
 func (a Page) SetUrlPath(urlPath string) Page {
 	return Page{Title: a.Title, Content: a.Content, UrlPath: urlPath}
 }
