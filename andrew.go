@@ -11,9 +11,12 @@ import (
 //
 //	fs.FS at a location on your file system such as os.DirFS.
 //
-// address - some ip:port combination. The AndrewServer
-func ListenAndServe(contentRoot fs.FS, address string, baseUrl string) error {
-	andrewServer := NewServer(contentRoot, address, baseUrl)
+// contentRoot - an initialised fs.FS. Some implementation details sometimes differ amongst different fs.FS;
+// Andrew internally uses an os.DirFS and tests with an fstest.MapFS, so those two have some code examples herein.
+// address - an ip:port combination. The AndrewServer will bind an http server here.
+// baseUrl - the hostname that you are hosting from.
+func ListenAndServe(contentRoot fs.FS, address string, hostname string) error {
+	andrewServer := NewServer(contentRoot, address, hostname)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", andrewServer.Serve)

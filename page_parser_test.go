@@ -6,7 +6,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestTitleDiscoveryErrorsWithNoTitleElement(t *testing.T) {
+func TestTitleDiscoveryReturnsErrorWhenNoTitleElementInPageContent(t *testing.T) {
 	_, err := titleFromHTMLTitleElement([]byte("snibble"))
 
 	if err.Error() != "no title element found" {
@@ -14,7 +14,7 @@ func TestTitleDiscoveryErrorsWithNoTitleElement(t *testing.T) {
 	}
 }
 
-func TestTitleElementDiscoveredWhenPresent(t *testing.T) {
+func TestTitleElementDiscoveredWhenPresentInPageContent(t *testing.T) {
 	expected := "my title"
 	received, err := titleFromHTMLTitleElement([]byte("<title>" + expected + "</title>"))
 
@@ -27,7 +27,7 @@ func TestTitleElementDiscoveredWhenPresent(t *testing.T) {
 	}
 }
 
-func TestGetTitleReturnsFileNameWhenNoTitleInDocument(t *testing.T) {
+func TestGetTitleReturnsPageFileNameWhenNoTitleInDocument(t *testing.T) {
 	received, err := getTitle("page title", []byte{})
 
 	if err != nil {
