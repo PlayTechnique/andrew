@@ -3,7 +3,6 @@ package andrew_test
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"net"
@@ -20,7 +19,7 @@ import (
 	"github.com/playtechnique/andrew"
 )
 
-func TestGetForExistingPageRetrievesThePage(t *testing.T) {
+func TestServerRespondsStatusOKForExistingPage(t *testing.T) {
 	t.Parallel()
 	expected := []byte(`
 <!DOCTYPE html>
@@ -31,20 +30,20 @@ func TestGetForExistingPageRetrievesThePage(t *testing.T) {
 </body>
 `)
 
-	contentRoot := fstest.MapFS{
-		"index.html": &fstest.MapFile{Data: expected},
-	}
+	s := newTestAndrewServer(t, fstest.MapFS{
+		"index.html": &fstest.MapFile{
+			Data: expected,
+		},
+	})
 
-	testUrl := startAndrewServer(t, contentRoot)
-
-	resp, err := http.Get(testUrl + "/index.html")
-
+	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status %q", resp.Status)
+	}
 	received, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,110 +53,70 @@ func TestGetForExistingPageRetrievesThePage(t *testing.T) {
 	}
 }
 
-func TestGetForNonExistentPageGenerates404(t *testing.T) {
+func TestGetForNonExistentPageGeneratesStatusNotFound(t *testing.T) {
 	t.Parallel()
 
-	contentRoot := fstest.MapFS{}
-	testUrl := startAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, fstest.MapFS{})
 
-	resp, err := http.Get(testUrl + "/page.html")
-
+	resp, err := http.Get(s.BaseUrl + "/page.html")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if resp.StatusCode != 404 {
+	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("Expected a 404 response for a non-existent page, received %d", resp.StatusCode)
 	}
 }
 
-func TestGetForUnreadablePageGenerates403(t *testing.T) {
+func TestGetForUnreadablePageGeneratesStatusForbidden(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := t.TempDir()
 
 	// fstest.MapFS does not enforce file permissions, so we need a real file system in this test.
-	err := os.WriteFile(contentRoot+"/index.html", []byte(""), 0o222)
-	if err != nil {
-		t.Fatal(err)
-	}
-	testUrl := startAndrewServer(t, os.DirFS(contentRoot))
-
-	resp, err := http.Get(testUrl + "/index.html")
+	err := os.WriteFile(contentRoot+"/index.html", []byte{}, 0o222)
 
 	if err != nil {
 		t.Fatal(err)
 	}
+	s := newTestAndrewServer(t, os.DirFS(contentRoot))
 
-	if resp.StatusCode != 403 {
+	resp, err := http.Get(s.BaseUrl + "/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("Expected a 403 response for a page without permission, received %d", resp.StatusCode)
 	}
-}
-
-func TestGetSitemapReturnsTheSitemap(t *testing.T) {
-	t.Parallel()
-
-	testUrl := startAndrewServer(t, fstest.MapFS{})
-
-	resp, err := http.Get(testUrl + "/sitemap.xml")
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := []byte("http://www.sitemaps.org/schemas/sitemap/0.9")
-	received, err := io.ReadAll(resp.Body)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Contains(received, expected) {
-		t.Fatalf("Expected %q, received %q", expected, received)
-	}
-
 }
 
 func Test500ErrorForUnforeseenErrorCase(t *testing.T) {
 	t.Parallel()
 
 	_, status := andrew.CheckPageErrors(errors.New("novel error"))
-
-	if status != 500 {
+	if status != http.StatusInternalServerError {
 		t.Errorf("Expected status 500 for unknown error, received %q", status)
 	}
 }
-func TestGetPagesWithoutSpecifyingPageDefaultsToIndexHtml(t *testing.T) {
+
+func TestGetSitemapReturnsTheSitemap(t *testing.T) {
 	t.Parallel()
 
-	expected := []byte(`
-<!DOCTYPE html>
-<head>
-<title>index title</title>
-</head>
-<body>
-</body>
-	`)
+	s := newTestAndrewServer(t, fstest.MapFS{})
 
-	contentRoot := fstest.MapFS{
-		"index.html": &fstest.MapFile{Data: expected},
-	}
-
-	testUrl := startAndrewServer(t, contentRoot)
-
-	resp, err := http.Get(testUrl)
-
+	resp, err := http.Get(s.BaseUrl + "/sitemap.xml")
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	expected := []byte("http://www.sitemaps.org/schemas/sitemap/0.9")
 	received, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !slices.Equal(received, expected) {
+	if !bytes.Contains(received, expected) {
 		t.Fatalf("Expected %q, received %q", expected, received)
 	}
 }
@@ -182,16 +141,14 @@ func TestGettingADirectoryDefaultsToIndexHtml(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	testUrl := startAndrewServer(t, os.DirFS(contentRoot))
+	s := newTestAndrewServer(t, os.DirFS(contentRoot))
 
-	resp, err := http.Get(testUrl + "/pages/")
-
+	resp, err := http.Get(s.BaseUrl + "/pages/")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	received, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,23 +158,22 @@ func TestGettingADirectoryDefaultsToIndexHtml(t *testing.T) {
 	}
 }
 
-func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
+func TestServerServesRequestedPage(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := fstest.MapFS{
 		"page.html": &fstest.MapFile{Data: []byte("some text")},
 	}
 
-	testUrl := startAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, contentRoot)
+	t.Logf("Server running on %s\n", s.BaseUrl)
 
-	resp, err := http.Get(testUrl + "/page.html")
-
+	resp, err := http.Get(s.BaseUrl + "/page.html")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	received, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +183,40 @@ func TestGetPagesCanRetrieveOtherPages(t *testing.T) {
 	}
 }
 
-func TestAndrewIndexBodyIsGeneratedCorrectlyInTopLevelIndexHtmlPage(t *testing.T) {
+func TestServerServesIndexPageByDefault(t *testing.T) {
+	t.Parallel()
+
+	expected := []byte(`
+<!DOCTYPE html>
+<head>
+<title>index title</title>
+</head>
+<body>
+</body>
+	`)
+
+	contentRoot := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: expected},
+	}
+
+	s := newTestAndrewServer(t, contentRoot)
+
+	resp, err := http.Get(s.BaseUrl)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !slices.Equal(received, expected) {
+		t.Fatalf("Expected %q, received %q", expected, received)
+	}
+}
+
+func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := fstest.MapFS{
@@ -246,15 +235,14 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInTopLevelIndexHtmlPage(t *testing.T
 `)},
 	}
 
-	testUrl := startAndrewServer(t, contentRoot)
-	resp, err := http.Get(testUrl + "/index.html")
+	s := newTestAndrewServer(t, contentRoot)
 
+	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	received, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,15 +279,14 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 `)},
 	}
 
-	testUrl := startAndrewServer(t, contentRoot)
-	resp, err := http.Get(testUrl + "/parentDir/index.html")
+	s := newTestAndrewServer(t, contentRoot)
 
+	resp, err := http.Get(s.BaseUrl + "/parentDir/index.html")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	received, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,17 +332,15 @@ func TestCorrectMimeTypeIsSetForKnownFileTypes(t *testing.T) {
 		"page.ico":  {},
 	}
 
-	testUrl := startAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, contentRoot)
 
 	for page := range contentRoot {
-		resp, err := http.Get(testUrl + "/" + page)
-
+		resp, err := http.Get(s.BaseUrl + "/" + page)
 		if err != nil {
 			t.Fatal(err)
 		}
 		// Read the body to prevent resource leaks
 		_, err = io.ReadAll(resp.Body)
-
 		if err != nil {
 			t.Error(err)
 		}
@@ -369,7 +354,7 @@ func TestCorrectMimeTypeIsSetForKnownFileTypes(t *testing.T) {
 	}
 }
 
-func TestMainCalledWithHelpDisplaysHelp(t *testing.T) {
+func TestMainCalledWithHelpOptionDisplaysHelp(t *testing.T) {
 	t.Parallel()
 
 	args := []string{"--help"}
@@ -402,7 +387,6 @@ func TestMainCalledWithNoArgsUsesDefaults(t *testing.T) {
 	if baseUrl != andrew.DefaultBaseUrl {
 		t.Errorf("baseUrl should be %s, received %q", andrew.DefaultBaseUrl, baseUrl)
 	}
-
 }
 
 func TestMainCalledWithArgsOverridesDefaults(t *testing.T) {
@@ -421,7 +405,6 @@ func TestMainCalledWithArgsOverridesDefaults(t *testing.T) {
 	if baseUrl != "3" {
 		t.Errorf("baseUrl should be %s, received %q", "3", baseUrl)
 	}
-
 }
 
 func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
@@ -438,7 +421,6 @@ func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
 	}()
 
 	andrew.Main(args, nullLogger)
-
 }
 
 // TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime is verifying that
@@ -478,7 +460,7 @@ func TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime(t *testing.T) {
 	os.Chtimes(contentRoot+"/a.html", now, now)
 	os.Chtimes(contentRoot+"/b.html", older, older)
 
-	server := andrew.AndrewServer{SiteFiles: os.DirFS(contentRoot), Andrewindexbodytemplate: andrew.AndrewIndexBodyTemplate}
+	server := andrew.Server{SiteFiles: os.DirFS(contentRoot), Andrewindexbodytemplate: andrew.AndrewIndexBodyTemplate}
 	page, err := andrew.NewPage(server, "index.html")
 
 	if err != nil {
@@ -493,36 +475,48 @@ func TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime(t *testing.T) {
 
 }
 
-// startAndrewServer starts an andrew and returns the localhost url that you can run http gets against
+// newTestAndrewServer starts an andrew and returns the localhost url that you can run http gets against
 // to retrieve data from that server
-func startAndrewServer(t *testing.T, contentRoot fs.FS) string {
+func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
 	t.Helper()
 
-	testPort, testUrl := getTestPortAndUrl(t)
-	go func() {
-		//how can I get a random free port here for the server to start on, and return it for the tests
-		//add a server object to track this datum and for convenience methods like "shut down the server".
-		err := andrew.ListenAndServe(contentRoot, testPort, testUrl)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	return testUrl
-}
-
-// getTestPortAndUrl creates a net.Listen to retrieve a random, currently open port on the system.
-// It then closes the net.Listen, as andrew will want to bind to the discovered port, but returns
-// a preformatted localhost url with the new port as a test convenience.
-func getTestPortAndUrl(t *testing.T) (string, string) {
-	t.Helper()
-
-	listener, err := net.Listen("tcp", ":0")
+	// Listen on IPv4 localhost on any available port
+	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	addr := listener.Addr().String()
 	listener.Close()
-	url := fmt.Sprintf("http://localhost:%d/", listener.Addr().(*net.TCPAddr).Port)
-	return listener.Addr().String(), url
+
+	server := andrew.NewServer(contentRoot, addr, "http://"+addr)
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Log("Server stopped with error:", err)
+		}
+	}()
+
+	// Ensure server is ready by attempting to dial the server repeatedly
+	ready := make(chan bool)
+	go func() {
+		defer close(ready)
+		for i := 0; i < 10; i++ {
+			conn, err := net.Dial("tcp", addr)
+			if err == nil {
+				conn.Close()
+				ready <- true
+				return
+			}
+			time.Sleep(50 * time.Millisecond) // Brief sleep to wait for server to be ready
+		}
+		t.Log("Failed to connect to server after retries:", addr)
+	}()
+
+	// Wait for server to be confirmed ready
+	<-ready
+
+	t.Logf("Running server on %s\n", addr)
+
+	return server
 }

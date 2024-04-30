@@ -9,7 +9,7 @@ import (
 	"github.com/playtechnique/andrew"
 )
 
-func TestGenerateSitemapCreatesACorrectSiteMap(t *testing.T) {
+func TestGenerateSitemap_CreatesACorrectSiteMap(t *testing.T) {
 	expected := []byte(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 	<url>
@@ -33,5 +33,4 @@ func TestGenerateSitemapCreatesACorrectSiteMap(t *testing.T) {
 	if !bytes.Equal(sitemap, expected) {
 		t.Error(cmp.Diff(expected, sitemap))
 	}
-
 }

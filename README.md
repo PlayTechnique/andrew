@@ -5,6 +5,10 @@ with the contents of any html files that are below the current index.html in the
 
 It's grown a little to include a small sitemap generator.  
 
+## To install it
+
+`go install github.com/playtechnique/andrew/cmd/andrew`
+
 ## invocation
 andrew -h to see the help
 
@@ -51,8 +55,8 @@ if fanfics/index.html contains `{{ .AndrewIndexBody }}`, that'll be replaced wit
 
 ```html
     <a class="andrewindexbodylink" id="andrewindexbodylink0" href="story-1/potter-and-draco.html">Potter and Draco</a>
-    <a class="andrewindexbodylink" id="andrewindexbodylink0" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt1.html</a>
-    <a class="andrewindexbodylink" id="andrewindexbodylink0" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt2.html</a>
+    <a class="andrewindexbodylink" id="andrewindexbodylink1" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt1.html</a>
+    <a class="andrewindexbodylink" id="andrewindexbodylink2" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt2.html</a>
 ```
 
 ## page titles
@@ -79,5 +83,3 @@ contains a date but not a time, Andrew assumes the page was created at midnight.
 ## sitemap.xml
 When the endpoint `baseUrl/sitemap.xml` is visited, Andrew will automatically generate a sitemap containing paths to all html pages.
 
-## server
-`go install github.com/playtechnique/andrew/cmd`

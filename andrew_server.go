@@ -11,15 +11,16 @@ import (
 	"strings"
 )
 
-// AndrewServer holds a reference to the paths in the fs.FS that correspond to
+// Server holds a reference to the paths in the fs.FS that correspond to
 // each page that should be served.
-// When a URL is requested, AndrewServer creates an AndrewPage for the file referenced
-// in that URL and then serves the AndrewPage.
-type AndrewServer struct {
-	SiteFiles               fs.FS  //The files being served
-	BaseUrl                 string //The URL used in any links generated for this website that should contain the hostname.
-	Address                 string //IpAddress:Port combo to be served on.
-	Andrewindexbodytemplate string //The string we're searching for inside a Page that should be replaced with a template. Mightn't belong in the Server.
+// When a URL is requested, Server creates an Page for the file referenced
+// in that URL and then serves the Page.
+type Server struct {
+	SiteFiles               fs.FS  // The files being served
+	BaseUrl                 string // The URL used in any links generated for this website that should contain the hostname.
+	Address                 string // IpAddress:Port combo to be served on.
+	Andrewindexbodytemplate string // The string we're searching for inside a Page that should be replaced with a template. Mightn't belong in the Server.
+	HTTPServer              *http.Server
 }
 
 const (
@@ -29,64 +30,30 @@ const (
 	DefaultBaseUrl          = "http://localhost:8080"
 )
 
-func NewAndrewServer(contentRoot fs.FS, address string, baseUrl string) (AndrewServer, error) {
-	return AndrewServer{SiteFiles: contentRoot, Andrewindexbodytemplate: "AndrewIndexBody", Address: address, BaseUrl: baseUrl}, nil
-}
-
-func Main(args []string, printDest io.Writer) int {
-	help := `Usage: andrew [contentRoot] [address] [baseUrl]
-	- contentRoot: The root directory of your content. Defaults to '.' if not specified.
-	- address: The address to bind to. Defaults to 'localhost:8080' if not specified. If in doubt, you probably want '0.0.0.0:<some free port>'
-	- base URL: The protocol://hostname for your server. Defaults to 'http://localhost:8080' if not specified. Used to generate sitemap/rss feed accurately.
-	
-	-h, --help: Display this help message.
-`
-
-	for _, arg := range args {
-		if arg == "-h" || arg == "--help" {
-			fmt.Fprint(printDest, help)
-			return 0
-		}
+// NewServer is a constructor. Its primary role is setting the default andrewindexbodytemplate.
+// Returns an [Server].
+func NewServer(contentRoot fs.FS, address, baseUrl string) *Server {
+	s := &Server{
+		SiteFiles:               contentRoot,
+		Andrewindexbodytemplate: "AndrewIndexBody",
+		Address:                 address,
+		BaseUrl:                 baseUrl,
 	}
-
-	contentRoot, address, baseUrl := ParseArgs(args)
-
-	fmt.Fprintf(printDest, "Serving from %s, listening on %s, serving on %s", contentRoot, address, baseUrl)
-
-	err := ListenAndServe(os.DirFS(contentRoot), address, baseUrl)
-
-	if err != nil {
-		panic(err)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", s.Serve)
+	mux.HandleFunc("/sitemap.xml", s.ServeSiteMap)
+	s.HTTPServer = &http.Server{
+		Handler: mux,
+		Addr:    address,
 	}
-
-	return 0
-}
-
-func ParseArgs(args []string) (string, string, string) {
-	contentRoot := DefaultContentRoot
-	address := DefaultAddress
-	baseUrl := DefaultBaseUrl
-
-	if len(args) >= 1 {
-		contentRoot = args[0]
-	}
-
-	if len(args) >= 2 {
-		address = args[1]
-	}
-
-	if len(args) >= 3 {
-		baseUrl = args[2]
-	}
-
-	return contentRoot, address, baseUrl
+	return s
 }
 
 // Serve handles requests for any URL. It checks whether the request is for
 // an index.html page or for anything else (another page, css, javascript etc).
 // If a directory is requested, Serve defaults to finding the index.html page
 // within that directory. Detecting this case for
-func (a AndrewServer) Serve(w http.ResponseWriter, r *http.Request) {
+func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
 	pagePath := path.Clean(r.RequestURI)
 
 	// Ensure the pagePath is relative to the root of a.SiteFiles.
@@ -111,7 +78,6 @@ func (a AndrewServer) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page, err := NewPage(a, pagePath)
-
 	if err != nil {
 		message, status := CheckPageErrors(err)
 		w.WriteHeader(status)
@@ -122,9 +88,16 @@ func (a AndrewServer) Serve(w http.ResponseWriter, r *http.Request) {
 	a.serve(w, page)
 }
 
-// serve writes to the ResponseWriter any arbitrary html file, or css, javascript, images etc.
-func (a AndrewServer) serve(w http.ResponseWriter, page AndrewPage) {
+func (a *Server) ListenAndServe() error {
+	return a.HTTPServer.ListenAndServe()
+}
 
+func (a *Server) Close() error {
+	return a.HTTPServer.Close()
+}
+
+// serve writes to the ResponseWriter any arbitrary html file, or css, javascript, images etc.
+func (a Server) serve(w http.ResponseWriter, page Page) {
 	// Determine the content type based on the file extension
 	switch filepath.Ext(page.UrlPath) {
 	case ".css":
@@ -147,14 +120,12 @@ func (a AndrewServer) serve(w http.ResponseWriter, page AndrewPage) {
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, page.Content)
-
 }
 
 // CheckPageErrors is a helper function that will convert an error handed into it
 // into the appropriate http error code and a message.
 // If no specific error is found, a 500 is the default value returned.
 func CheckPageErrors(err error) (string, int) {
-
 	// if a file doesn't exist
 	// http 404
 	if os.IsNotExist(err) {
@@ -179,8 +150,8 @@ func CheckPageErrors(err error) (string, int) {
 // The filter is called in the context of fs.WalkDir. It is handed fs.WalkDir's path and directory entry,
 // in that order, and is expected to return a boolean false.
 // If that error is nil then the current file being evaluated is skipped for consideration.
-func (a AndrewServer) GetSiblingsAndChildren(pagePath string, filter func(string, fs.DirEntry) bool) ([]AndrewPage, error) {
-	pages := []AndrewPage{}
+func (a Server) GetSiblingsAndChildren(pagePath string, filter func(string, fs.DirEntry) bool) ([]Page, error) {
+	pages := []Page{}
 	localContentRoot := path.Dir(pagePath)
 
 	err := fs.WalkDir(a.SiteFiles, localContentRoot, func(path string, d fs.DirEntry, err error) error {
@@ -205,4 +176,54 @@ func (a AndrewServer) GetSiblingsAndChildren(pagePath string, filter func(string
 	})
 
 	return pages, err
+}
+
+// Main is the implementation of main. It's here to get main's logic into a testable package.
+func Main(args []string, printDest io.Writer) int {
+	help := `Usage: andrew [contentRoot] [address] [baseUrl]
+	- contentRoot: The root directory of your content. Defaults to '.' if not specified.
+	- address: The address to bind to. Defaults to 'localhost:8080' if not specified. If in doubt, you probably want 0.0.0.0:<something>
+	- base URL: The protocol://hostname for your server. Defaults to 'http://localhost:8080' if not specified. Used to generate sitemap/rss feed accurately.
+	
+	-h, --help: Display this help message.
+`
+
+	for _, arg := range args {
+		if arg == "-h" || arg == "--help" {
+			fmt.Fprint(printDest, help)
+			return 0
+		}
+	}
+
+	contentRoot, address, baseUrl := ParseArgs(args)
+
+	fmt.Fprintf(printDest, "Serving from %s, listening on %s, serving on %s", contentRoot, address, baseUrl)
+
+	err := ListenAndServe(os.DirFS(contentRoot), address, baseUrl)
+	if err != nil {
+		panic(err)
+	}
+
+	return 0
+}
+
+// ParseArgs ensures command line arguments override the default settings for a new Andrew server.
+func ParseArgs(args []string) (string, string, string) {
+	contentRoot := DefaultContentRoot
+	address := DefaultAddress
+	baseUrl := DefaultBaseUrl
+
+	if len(args) >= 1 {
+		contentRoot = args[0]
+	}
+
+	if len(args) >= 2 {
+		address = args[1]
+	}
+
+	if len(args) >= 3 {
+		baseUrl = args[2]
+	}
+
+	return contentRoot, address, baseUrl
 }

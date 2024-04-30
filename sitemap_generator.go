@@ -10,21 +10,18 @@ import (
 )
 
 // SiteMap
-func (a AndrewServer) ServeSiteMap(w http.ResponseWriter, r *http.Request) {
+func (a Server) ServeSiteMap(w http.ResponseWriter, r *http.Request) {
 	sitemap := GenerateSiteMap(a.SiteFiles, a.BaseUrl)
 
 	w.WriteHeader(http.StatusOK)
 	_, err := fmt.Fprint(w, string(sitemap))
-
 	if err != nil {
 		panic(err)
 	}
-
 }
 
 // Generates and returns a sitemap.xml.
 func GenerateSiteMap(f fs.FS, baseUrl string) []byte {
-
 	buff := new(bytes.Buffer)
 
 	const (

@@ -12,7 +12,18 @@ import (
 	"golang.org/x/net/html"
 )
 
-type AndrewPage struct {
+const (
+	// The index.html has overhead associated with processing its internals, so it gets
+	// processed separately from other pages.
+	indexIdentifier = "index.html"
+)
+
+// Page tracks the content of a specific file and various pieces of metadata about it.
+// The Page makes creating links and serving content convenient, as it lets me offload
+// the parsing of any elements into a constructor, so that when I need to present those
+// elements to an end-user they're easy for me to reason about.
+type Page struct {
+	// Page title
 	Title string
 	// According to https://datatracker.ietf.org/doc/html/rfc1738#section-3.1, the subsection of a
 	// URL after the procol://hostname is the UrlPath.
@@ -23,52 +34,41 @@ type AndrewPage struct {
 }
 
 // NewPage creates a Page from a URL by reading the corresponding file from the
-// file system.
-// If a page cannot be read, it just hands the error back up the stack. This is
-// because NewPage is being called in a web server's context, and errors are handled
-// by printing both an http.StatusCode and a well understood warning to a tcp socket,
-// not by panicking or something.
-// The Page constructor does not have access to the tcp socket, so it cannot actually
-// handle the error correctly.
-func NewPage(server AndrewServer, pageUrl string) (AndrewPage, error) {
-	// /index.html becomes index.html
-	// /articles/page.html becomes articles/page.html
-	// without this the paths aren't found properly inside the fs.
+// AndrewServer's SiteFiles.
+func NewPage(server Server, pageUrl string) (Page, error) {
 	pageContent, err := fs.ReadFile(server.SiteFiles, pageUrl)
 	if err != nil {
-		return AndrewPage{}, err
+		return Page{}, err
 	}
 
+	// The fs.FS documentation notes that paths should not start with a leading slash.
 	pagePath := strings.TrimPrefix(pageUrl, "/")
 	pageTitle, err := getTitle(pagePath, pageContent)
-
 	if err != nil {
-		return AndrewPage{}, err
+		return Page{}, err
 	}
 
-	//TODO: This constructor does not seem like the right place to hide the knowledge
-	//TODO: that index.html isn't treated the same as everything else, but it's good
-	//TODO: for making the functionality work.
-	if strings.Contains(pageUrl, "index.html") {
+	if strings.Contains(pageUrl, indexIdentifier) {
 		pageContent, err = buildAndrewIndexBody(server, pageUrl, pageContent)
-
 		if err != nil {
-			return AndrewPage{}, err
+			return Page{}, err
 		}
 	}
 
 	// pageMeta := getMeta(pagePath, pageContent)
-
-	return AndrewPage{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle}, nil
+	return Page{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle}, nil
 }
 
-func (a AndrewPage) SetUrlPath(urlPath string) AndrewPage {
-	return AndrewPage{Title: a.Title, Content: a.Content, PublishTime: a.PublishTime, UrlPath: urlPath}
+// SetUrlPath updates the UrlPath on a pre-existing Page.
+func (a Page) SetUrlPath(urlPath string) Page {
+	return Page{Title: a.Title, Content: a.Content, UrlPath: urlPath}
 }
 
-func buildAndrewIndexBody(server AndrewServer, startingPageUrl string, pageContent []byte) ([]byte, error) {
-	// The index body should not contain other index.html files.
-	// It also should not contain any files that are not html files.
+// buildAndrewIndexBody receives the path to a file, currently normally an index file.
+// It traverses the file system starting at the directory containing
+// that file, finds all html files that are _not_ index.html files and returns them
+// as a list of html links to those pages.
+func buildAndrewIndexBody(server Server, startingPageUrl string, pageContent []byte) ([]byte, error) {
 	filterIndexFiles := func(path string, d fs.DirEntry) bool {
 		if strings.Contains(path, "index.html") {
 			return false
@@ -82,7 +82,6 @@ func buildAndrewIndexBody(server AndrewServer, startingPageUrl string, pageConte
 	}
 
 	siblings, err := server.GetSiblingsAndChildren(startingPageUrl, filterIndexFiles)
-
 	if err != nil {
 		return pageContent, err
 	}
@@ -96,28 +95,23 @@ func buildAndrewIndexBody(server AndrewServer, startingPageUrl string, pageConte
 	}
 
 	templateBuffer := bytes.Buffer{}
-	//execute template here, write it to something and then return it as the pageContent
+	// execute template here, write it to something and then return it as the pageContent
 	t, err := template.New(startingPageUrl).Parse(string(pageContent))
-
 	if err != nil {
-		//TODO: swap this for proper error handling
+		// TODO: swap this for proper error handling
 		panic(err)
 	}
 
 	err = t.Execute(&templateBuffer, map[string]string{server.Andrewindexbodytemplate: links.String()})
-
 	if err != nil {
-		//TODO: swap this for proper error handling
+		// TODO: swap this for proper error handling
 		panic(err)
 	}
 	return templateBuffer.Bytes(), nil
 }
 
-// buildAndrewIndexBody receives the path to a file, currently normally an index file.
-// It traverses the file system starting at the directory containing
-// that file, finds all html files that are _not_ index.html files and returns them
-// as a list of html links to those pages.
-func buildAndrewIndexLink(page AndrewPage, cssIdNumber int) []byte {
+// buildAndrewIndexLink encapsulates the format of the link
+func buildAndrewIndexLink(page Page, cssIdNumber int) []byte {
 	link := fmt.Sprintf("<a class=\"andrewindexbodylink\" id=\"andrewindexbodylink%s\" href=\"%s\">%s</a>", fmt.Sprint(cssIdNumber), page.UrlPath, page.Title)
 	b := []byte(link)
 	return b
@@ -144,25 +138,24 @@ func getAttributes(attribute string, n *html.Node) []string {
 	return attributes
 }
 
-func getMeta(htmlContent []byte) ([]string, error) {
-	element := "meta"
+// func getMeta(htmlContent []byte) ([]string, error) {
+// 	element := "meta"
 
-	doc, err := html.Parse(bytes.NewReader(htmlContent))
-	if err != nil {
-		return []string{}, err
-	}
+// 	doc, err := html.Parse(bytes.NewReader(htmlContent))
+// 	if err != nil {
+// 		return []string{}, err
+// 	}
 
-	meta := getAttributes(element, doc)
+// 	meta := getAttributes(element, doc)
 
-	if len(meta) == 0 {
-		return meta, fmt.Errorf("no %s element found", element)
-	}
-	return meta, nil
-}
+// 	if len(meta) == 0 {
+// 		return meta, fmt.Errorf("no %s element found", element)
+// 	}
+// 	return meta, nil
+// }
 
 func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
 	title, err := titleFromHTMLTitleElement(htmlContent)
-
 	if err != nil {
 		if err.Error() != "no title element found" {
 			return "", err
