@@ -138,21 +138,21 @@ func getAttributes(attribute string, n *html.Node) []string {
 	return attributes
 }
 
-// func getMeta(htmlContent []byte) ([]string, error) {
-// 	element := "meta"
+func getMeta(htmlContent []byte) ([]string, error) {
+	element := "meta"
 
-// 	doc, err := html.Parse(bytes.NewReader(htmlContent))
-// 	if err != nil {
-// 		return []string{}, err
-// 	}
+	doc, err := html.Parse(bytes.NewReader(htmlContent))
+	if err != nil {
+		return []string{}, err
+	}
 
-// 	meta := getAttributes(element, doc)
+	meta := getAttributes(element, doc)
 
-// 	if len(meta) == 0 {
-// 		return meta, fmt.Errorf("no %s element found", element)
-// 	}
-// 	return meta, nil
-// }
+	if len(meta) == 0 {
+		return meta, fmt.Errorf("no %s element found", element)
+	}
+	return meta, nil
+}
 
 func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
 	title, err := titleFromHTMLTitleElement(htmlContent)

@@ -38,3 +38,7 @@ func TestGetTitleReturnsPageFileNameWhenNoTitleInDocument(t *testing.T) {
 		t.Fatal(cmp.Diff("", received))
 	}
 }
+
+func TestMetaIsPopulatedWithExpectedElements(t *testing.T) {
+
+}
