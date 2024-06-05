@@ -117,28 +117,35 @@ func buildAndrewIndexLink(page Page, cssIdNumber int) []byte {
 	return b
 }
 
-// getAttribute recursively descends an html node tree, searching for
+// getTags recursively descends an html node tree, searching for
 // the attribute provided. Once the attribute is discovered, it returns.
-func getAttributes(attribute string, n *html.Node) []string {
-	var attributes []string
+func getTags(attribute string, n *html.Node) []string {
+	var tags []string
 
-	//n.Type no longer matches html.ElementNode; n is now a document, not a node
-	if n.Type == html.ElementNode {
-		for _, a := range n.Attr {
-			if a.Key == attribute {
-				attributes = append(attributes, a.Val)
+	// getTag recursively descends an html node tree, searching for
+	// the attribute provided. Once the attribute is discovered, it appends to attributes.
+	var getTag func(n *html.Node)
+
+	getTag = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == attribute {
+			if n.FirstChild != nil {
+				tags = append(tags, n.FirstChild.Data)
+				return
 			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			getTag(c)
 		}
 	}
 
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		attributes = append(attributes, getAttributes(attribute, c)...)
-	}
+	// Start the recursion from the root node
+	getTag(n)
 
-	return attributes
+	return tags
 }
 
-func getMeta(htmlContent []byte) ([]string, error) {
+func GetMetaElements(htmlContent []byte) ([]string, error) {
 	element := "meta"
 
 	doc, err := html.Parse(bytes.NewReader(htmlContent))
@@ -146,7 +153,7 @@ func getMeta(htmlContent []byte) ([]string, error) {
 		return []string{}, err
 	}
 
-	meta := getAttributes(element, doc)
+	meta := getTags(element, doc)
 
 	if len(meta) == 0 {
 		return meta, fmt.Errorf("no %s element found", element)
@@ -176,7 +183,7 @@ func titleFromHTMLTitleElement(fileContent []byte) (string, error) {
 		return "", err
 	}
 
-	title := getAttributes("title", doc)
+	title := getTags("title", doc)
 	if len(title) == 0 {
 		return "", fmt.Errorf("no title element found")
 	}
