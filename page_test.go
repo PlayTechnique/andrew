@@ -1,6 +1,7 @@
 package andrew
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -39,6 +40,28 @@ func TestGetTitleReturnsPageFileNameWhenNoTitleInDocument(t *testing.T) {
 	}
 }
 
-func TestMetaIsPopulatedWithExpectedElements(t *testing.T) {
+func TestMetaPopulatesATag(t *testing.T) {
+	expected := []string{"andrew-created-at 2025-03-01"}
+	received, err := GetMetaElements([]byte("<meta name=andrew-created-at content=2025-03-01>"))
 
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !slices.Equal(expected, received) {
+		t.Fatal(cmp.Diff(expected, received))
+	}
 }
+
+// func TestMetaIsPopulatedWithExpectedElements(t *testing.T) {
+// 	expected := map[string]string{"andrew-created-at": "2025-03-01"}
+// 	received, err := GetMetaElements([]byte("<meta name=andrew-created-at content=2025-03-01>"))
+
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	if received != expected {
+// 		t.Fatal(cmp.Diff(expected, received))
+// 	}
+// }

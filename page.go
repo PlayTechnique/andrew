@@ -117,21 +117,31 @@ func buildAndrewIndexLink(page Page, cssIdNumber int) []byte {
 	return b
 }
 
-// getTags recursively descends an html node tree, searching for
-// the attribute provided. Once the attribute is discovered, it returns.
-func getTags(attribute string, n *html.Node) []string {
-	var tags []string
+// getTags recursively descends an html node tree for the requested tag,
+// searching both data and attributes to find information about the node that's requested.
+func getTags(tag string, n *html.Node) []string {
+	var tagContent []string
 
 	// getTag recursively descends an html node tree, searching for
 	// the attribute provided. Once the attribute is discovered, it appends to attributes.
 	var getTag func(n *html.Node)
 
 	getTag = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == attribute {
-			if n.FirstChild != nil {
-				tags = append(tags, n.FirstChild.Data)
-				return
+		if n.Type == html.ElementNode && n.Data == tag {
+
+			if n.Attr != nil {
+				for _, attribute := range n.Attr {
+					tagContent = append(tagContent, attribute.Key)
+					tagContent = append(tagContent, attribute.Val)
+				}
 			}
+
+			if n.FirstChild != nil {
+				//Tag attributes and tag Data are being conflated here.
+				tagContent = append(tagContent, n.FirstChild.Data)
+			}
+
+			return
 		}
 
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -142,7 +152,7 @@ func getTags(attribute string, n *html.Node) []string {
 	// Start the recursion from the root node
 	getTag(n)
 
-	return tags
+	return tagContent
 }
 
 func GetMetaElements(htmlContent []byte) ([]string, error) {
