@@ -33,6 +33,11 @@ type Page struct {
 	PublishTime time.Time
 }
 
+type TagInfo struct {
+	Data       string
+	Attributes map[string]string
+}
+
 // NewPage creates a Page from a URL by reading the corresponding file from the
 // AndrewServer's SiteFiles.
 func NewPage(server Server, pageUrl string) (Page, error) {
@@ -117,28 +122,42 @@ func buildAndrewIndexLink(page Page, cssIdNumber int) []byte {
 	return b
 }
 
-// getTags recursively descends an html node tree for the requested tag,
+// getTagInfo recursively descends an html node tree for the requested tag,
 // searching both data and attributes to find information about the node that's requested.
-func getTags(tag string, n *html.Node) []string {
-	var tagContent []string
+// getTagInfo recursively descends an html node tree for the requested tag,
+// searching both data and attributes to find information about the node that's requested.
+func getTagInfo(tag string, n *html.Node) TagInfo {
+	var tagDataAndAttributes TagInfo = TagInfo{
+		Data:       "",
+		Attributes: make(map[string]string),
+	}
 
 	// getTag recursively descends an html node tree, searching for
-	// the attribute provided. Once the attribute is discovered, it appends to attributes.
+	// the attribute provided. Once the attribute is discovered, it first checks
+	// for any Attributes available on the html node. If there are no Attributes,
+	// the key won't exist in the tagDataAndAttributes map.
+	// If there is data, it will append to attributes.
 	var getTag func(n *html.Node)
 
 	getTag = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == tag {
+			a := ""
+			b := ""
 
 			if n.Attr != nil {
-				for _, attribute := range n.Attr {
-					tagContent = append(tagContent, attribute.Key)
-					tagContent = append(tagContent, attribute.Val)
+				for _, attr := range n.Attr {
+					switch attr.Key {
+					case "content":
+						b = attr.Val
+					case "name":
+						a = attr.Val
+					}
+					tagDataAndAttributes.Attributes[a] = b
 				}
 			}
 
 			if n.FirstChild != nil {
-				//Tag attributes and tag Data are being conflated here.
-				tagContent = append(tagContent, n.FirstChild.Data)
+				tagDataAndAttributes.Data = n.FirstChild.Data
 			}
 
 			return
@@ -152,23 +171,24 @@ func getTags(tag string, n *html.Node) []string {
 	// Start the recursion from the root node
 	getTag(n)
 
-	return tagContent
+	return tagDataAndAttributes
 }
 
-func GetMetaElements(htmlContent []byte) ([]string, error) {
+func GetMetaElements(htmlContent []byte) (map[string]string, error) {
 	element := "meta"
 
 	doc, err := html.Parse(bytes.NewReader(htmlContent))
 	if err != nil {
-		return []string{}, err
+		return map[string]string{}, err
 	}
 
-	meta := getTags(element, doc)
+	tagInfo := getTagInfo(element, doc)
 
-	if len(meta) == 0 {
-		return meta, fmt.Errorf("no %s element found", element)
+	if len(tagInfo.Attributes) == 0 {
+		return tagInfo.Attributes, fmt.Errorf("no %s element found", element)
 	}
-	return meta, nil
+
+	return tagInfo.Attributes, nil
 }
 
 func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
@@ -193,9 +213,9 @@ func titleFromHTMLTitleElement(fileContent []byte) (string, error) {
 		return "", err
 	}
 
-	title := getTags("title", doc)
-	if len(title) == 0 {
+	tagInfo := getTagInfo("title", doc)
+	if len(tagInfo.Data) == 0 {
 		return "", fmt.Errorf("no title element found")
 	}
-	return title[0], nil
+	return tagInfo.Data, nil
 }

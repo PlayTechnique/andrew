@@ -1,7 +1,7 @@
 package andrew
 
 import (
-	"slices"
+	"maps"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -40,28 +40,28 @@ func TestGetTitleReturnsPageFileNameWhenNoTitleInDocument(t *testing.T) {
 	}
 }
 
-func TestMetaPopulatesATag(t *testing.T) {
-	expected := []string{"andrew-created-at 2025-03-01"}
+func TestOneMetaTagPopulatesATag(t *testing.T) {
+	expected := map[string]string{"andrew-created-at": "2025-03-01"}
 	received, err := GetMetaElements([]byte("<meta name=andrew-created-at content=2025-03-01>"))
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !slices.Equal(expected, received) {
+	if !maps.Equal(expected, received) {
 		t.Fatal(cmp.Diff(expected, received))
 	}
 }
 
-// func TestMetaIsPopulatedWithExpectedElements(t *testing.T) {
-// 	expected := map[string]string{"andrew-created-at": "2025-03-01"}
-// 	received, err := GetMetaElements([]byte("<meta name=andrew-created-at content=2025-03-01>"))
+func TestMultipleMetaTagsPopulatedWithExpectedElements(t *testing.T) {
+	expected := map[string]string{"andrew-created-at": "2025-03-01", "andrew-roflcopter": "hippolol"}
+	received, err := GetMetaElements([]byte("<meta name=andrew-created-at content=2025-03-01> <meta name=andrew-roflcopter content=hippolol>"))
 
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	if received != expected {
-// 		t.Fatal(cmp.Diff(expected, received))
-// 	}
-// }
+	if !maps.Equal(expected, received) {
+		t.Fatal(cmp.Diff(expected, received))
+	}
+}
