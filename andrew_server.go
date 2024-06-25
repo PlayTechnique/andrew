@@ -146,11 +146,8 @@ func CheckPageErrors(err error) (string, int) {
 // GetSiblingsAndChildren accepts a path to a file and a filter function.
 // It infers the directory that the file resides within, and then recurses the Server's fs.FS
 // to return all of the files both in the same directory and further down in the directory structure.
-// To filter these down to only files that you care about, pass in a filter function.
-// The filter is called in the context of fs.WalkDir. It is handed fs.WalkDir's path and directory entry,
-// in that order, and is expected to return a boolean false.
-// If that error is nil then the current file being evaluated is skipped for consideration.
-func (a Server) GetSiblingsAndChildren(pagePath string, filter func(string, fs.DirEntry) bool) ([]Page, error) {
+func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
+
 	pages := []Page{}
 	localContentRoot := path.Dir(pagePath)
 
@@ -159,18 +156,27 @@ func (a Server) GetSiblingsAndChildren(pagePath string, filter func(string, fs.D
 			return err
 		}
 
-		if filter(path, d) {
-			// links require a URL relative to the page we're discovering siblings from, not from
-			// the root of the file system
-			page, err := NewPage(a, path)
-			page = page.SetUrlPath(strings.TrimPrefix(path, localContentRoot+"/"))
-
-			if err != nil {
-				return err
-			}
-
-			pages = append(pages, page)
+		// We don't list index files in our collection of siblings and children, because I don't
+		// want a link back to a page that contains only links.
+		if strings.Contains(path, "index.html") {
+			return nil
 		}
+
+		// If the file we're considering isn't an html file, let's move on with our day.
+		if !strings.Contains(path, "html") {
+			return nil
+		}
+
+		// links require a URL relative to the page we're discovering siblings from, not from
+		// the root of the file system
+		page, err := NewPage(a, path)
+		page = page.SetUrlPath(strings.TrimPrefix(path, localContentRoot+"/"))
+
+		if err != nil {
+			return err
+		}
+
+		pages = append(pages, page)
 
 		return nil
 	})

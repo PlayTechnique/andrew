@@ -6,16 +6,9 @@ import (
 	"io/fs"
 	"path"
 	"strings"
-	"text/template"
 	"time"
 
 	"golang.org/x/net/html"
-)
-
-const (
-	// The index.html has overhead associated with processing its internals, so it gets
-	// processed separately from other pages.
-	indexIdentifier = "index.html"
 )
 
 // Page tracks the content of a specific file and various pieces of metadata about it.
@@ -28,7 +21,6 @@ type Page struct {
 	// According to https://datatracker.ietf.org/doc/html/rfc1738#section-3.1, the subsection of a
 	// URL after the procol://hostname is the UrlPath.
 	UrlPath     string
-	Meta        []string
 	Content     string
 	PublishTime time.Time
 }
@@ -40,86 +32,69 @@ type TagInfo struct {
 
 // NewPage creates a Page from a URL by reading the corresponding file from the
 // AndrewServer's SiteFiles.
+// NewPage does this by reading the page content from disk, then parsing out various
+// metadata that are convenient to have quick access to, such as the page title or the
+// publish time.
 func NewPage(server Server, pageUrl string) (Page, error) {
 	pageContent, err := fs.ReadFile(server.SiteFiles, pageUrl)
 	if err != nil {
 		return Page{}, err
 	}
 
+	pageInfo, err := fs.Stat(server.SiteFiles, pageUrl)
+	if err != nil {
+		return Page{}, err
+	}
+
 	// The fs.FS documentation notes that paths should not start with a leading slash.
 	pagePath := strings.TrimPrefix(pageUrl, "/")
+
 	pageTitle, err := getTitle(pagePath, pageContent)
 	if err != nil {
 		return Page{}, err
 	}
 
-	if strings.Contains(pageUrl, indexIdentifier) {
-		pageContent, err = buildAndrewIndexBody(server, pageUrl, pageContent)
+	page := Page{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle}
+
+	if strings.Contains(pageUrl, "index.html") {
+		siblings, err := server.GetSiblingsAndChildren(page.UrlPath)
+
+		if err != nil {
+			return page, err
+		}
+
+		pageContent, err = BuildPageBodyWithLinks(siblings, pageUrl, page)
 		if err != nil {
 			return Page{}, err
 		}
+
+		page.Content = string(pageContent)
 	}
 
-	// pageMeta := getMeta(pagePath, pageContent)
-	return Page{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle}, nil
+	meta, err := GetMetaElements(pageContent)
+	if err != nil {
+		return Page{}, err
+	}
+
+	publishTime, ok := meta["andrew-created-at"]
+
+	if ok {
+		page.PublishTime, err = time.Parse(time.DateOnly, publishTime)
+
+		if err != nil {
+			// log.Logger("could not parse meta tag andrew-created-at using time.Parse. Defaulting to mod time")
+			page.PublishTime = pageInfo.ModTime()
+		}
+	} else {
+		page.PublishTime = pageInfo.ModTime()
+	}
+
+	return page, nil
 }
 
 // SetUrlPath updates the UrlPath on a pre-existing Page.
 func (a Page) SetUrlPath(urlPath string) Page {
 	return Page{Title: a.Title, Content: a.Content, UrlPath: urlPath}
-}
-
-// buildAndrewIndexBody receives the path to a file, currently normally an index file.
-// It traverses the file system starting at the directory containing
-// that file, finds all html files that are _not_ index.html files and returns them
-// as a list of html links to those pages.
-func buildAndrewIndexBody(server Server, startingPageUrl string, pageContent []byte) ([]byte, error) {
-	filterIndexFiles := func(path string, d fs.DirEntry) bool {
-		if strings.Contains(path, "index.html") {
-			return false
-		}
-
-		if !strings.Contains(path, "html") {
-			return false
-		}
-
-		return true
-	}
-
-	siblings, err := server.GetSiblingsAndChildren(startingPageUrl, filterIndexFiles)
-	if err != nil {
-		return pageContent, err
-	}
-
-	var links bytes.Buffer
-	cssIdNumber := 0
-
-	for _, sibling := range siblings {
-		links.Write(buildAndrewIndexLink(sibling, cssIdNumber))
-		cssIdNumber = cssIdNumber + 1
-	}
-
-	templateBuffer := bytes.Buffer{}
-	// execute template here, write it to something and then return it as the pageContent
-	t, err := template.New(startingPageUrl).Parse(string(pageContent))
-	if err != nil {
-		// TODO: swap this for proper error handling
-		panic(err)
-	}
-
-	err = t.Execute(&templateBuffer, map[string]string{server.Andrewindexbodytemplate: links.String()})
-	if err != nil {
-		// TODO: swap this for proper error handling
-		panic(err)
-	}
-	return templateBuffer.Bytes(), nil
-}
-
-// buildAndrewIndexLink encapsulates the format of the link
-func buildAndrewIndexLink(page Page, cssIdNumber int) []byte {
-	link := fmt.Sprintf("<a class=\"andrewindexbodylink\" id=\"andrewindexbodylink%s\" href=\"%s\">%s</a>", fmt.Sprint(cssIdNumber), page.UrlPath, page.Title)
-	b := []byte(link)
-	return b
 }
 
 // getTagInfo recursively descends an html node tree for the requested tag,
@@ -141,18 +116,18 @@ func getTagInfo(tag string, n *html.Node) TagInfo {
 
 	getTag = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == tag {
-			a := ""
-			b := ""
+			attrName := ""
+			attrVal := ""
 
 			if n.Attr != nil {
 				for _, attr := range n.Attr {
 					switch attr.Key {
 					case "content":
-						b = attr.Val
+						attrVal = attr.Val
 					case "name":
-						a = attr.Val
+						attrName = attr.Val
 					}
-					tagDataAndAttributes.Attributes[a] = b
+					tagDataAndAttributes.Attributes[attrName] = attrVal
 				}
 			}
 
@@ -183,10 +158,6 @@ func GetMetaElements(htmlContent []byte) (map[string]string, error) {
 	}
 
 	tagInfo := getTagInfo(element, doc)
-
-	if len(tagInfo.Attributes) == 0 {
-		return tagInfo.Attributes, fmt.Errorf("no %s element found", element)
-	}
 
 	return tagInfo.Attributes, nil
 }
