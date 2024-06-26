@@ -16,28 +16,28 @@ import (
 // When a URL is requested, Server creates an Page for the file referenced
 // in that URL and then serves the Page.
 type Server struct {
-	SiteFiles               fs.FS  // The files being served
-	BaseUrl                 string // The URL used in any links generated for this website that should contain the hostname.
-	Address                 string // IpAddress:Port combo to be served on.
-	Andrewindexbodytemplate string // The string we're searching for inside a Page that should be replaced with a template. Mightn't belong in the Server.
-	HTTPServer              *http.Server
+	SiteFiles                     fs.FS  // The files being served
+	BaseUrl                       string // The URL used in any links generated for this website that should contain the hostname.
+	Address                       string // IpAddress:Port combo to be served on.
+	Andrewtableofcontentstemplate string // The string we're searching for inside a Page that should be replaced with a template. Mightn't belong in the Server.
+	HTTPServer                    *http.Server
 }
 
 const (
-	AndrewIndexBodyTemplate = "AndrewIndexBody"
-	DefaultContentRoot      = "."
-	DefaultAddress          = ":8080"
-	DefaultBaseUrl          = "http://localhost:8080"
+	AndrewTableOfContentsTemplate = "AndrewTableOfContents"
+	DefaultContentRoot            = "."
+	DefaultAddress                = ":8080"
+	DefaultBaseUrl                = "http://localhost:8080"
 )
 
-// NewServer is a constructor. Its primary role is setting the default andrewindexbodytemplate.
+// NewServer is a constructor. Its primary role is setting the default andrewtableofcontentstemplate.
 // Returns an [Server].
 func NewServer(contentRoot fs.FS, address, baseUrl string) *Server {
 	s := &Server{
-		SiteFiles:               contentRoot,
-		Andrewindexbodytemplate: "AndrewIndexBody",
-		Address:                 address,
-		BaseUrl:                 baseUrl,
+		SiteFiles:                     contentRoot,
+		Andrewtableofcontentstemplate: "AndrewTableOfContents",
+		Address:                       address,
+		BaseUrl:                       baseUrl,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.Serve)

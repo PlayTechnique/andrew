@@ -25,7 +25,7 @@ baseUrl is the hostname you're serving from. This is a part of sitemaps and rss 
 e.g. `https://playtechnique.io`
 
 
-## rendering the .AndrewIndexBody
+## rendering the .AndrewTableOfContents
 Given this file system structure:
 ```text
 index.html
@@ -44,19 +44,19 @@ fanfics/
                 what-if-elves-rode-mice-pt2.html
 ```
 
-if articles/index.html contains `{{ .AndrewIndexBody }}` anywhere, that will be replaced with:
+if articles/index.html contains `{{ .AndrewTableOfContents }}` anywhere, that will be replaced with:
 
 ```html
-    <a class="andrewindexbodylink" id="andrewindexbodylink0" href="article-1.html">article 1</a>
-    <a class="andrewindexbodylink" id="andrewindexbodylink1" href="article-2.html">article 2</a>
+    <a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="article-1.html">article 1</a>
+    <a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="article-2.html">article 2</a>
 ```
 
-if fanfics/index.html contains `{{ .AndrewIndexBody }}`, that'll be replaced with:
+if fanfics/index.html contains `{{ .AndrewTableOfContents }}`, that'll be replaced with:
 
 ```html
-    <a class="andrewindexbodylink" id="andrewindexbodylink0" href="story-1/potter-and-draco.html">Potter and Draco</a>
-    <a class="andrewindexbodylink" id="andrewindexbodylink1" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt1.html</a>
-    <a class="andrewindexbodylink" id="andrewindexbodylink2" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt2.html</a>
+    <a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="story-1/potter-and-draco.html">Potter and Draco</a>
+    <a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt1.html</a>
+    <a class="andrewtableofcontentslink" id="andrewtableofcontentslink2" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt2.html</a>
 ```
 
 ## page titles

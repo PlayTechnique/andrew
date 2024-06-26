@@ -216,7 +216,7 @@ func TestServerServesIndexPageByDefault(t *testing.T) {
 	}
 }
 
-func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T) {
+func TestAndrewTableOfContentsIsGeneratedCorrectlyInContentrootDirectory(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := fstest.MapFS{
@@ -224,7 +224,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T)
 <!doctype HTML>
 <head> </head>
 <body>
-{{ .AndrewIndexBody }}
+{{ .AndrewTableOfContents }}
 </body>
 `)},
 		"pages/1-2-3.html": &fstest.MapFile{Data: []byte(`
@@ -251,7 +251,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T)
 <!doctype HTML>
 <head> </head>
 <body>
-<a class="andrewindexbodylink" id="andrewindexbodylink0" href="pages/1-2-3.html">1-2-3 Page</a>
+<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="pages/1-2-3.html">1-2-3 Page</a>
 </body>
 `
 
@@ -260,7 +260,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T)
 	}
 }
 
-func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
+func TestAndrewTableOfContentsIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := fstest.MapFS{
@@ -268,7 +268,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 <!doctype HTML>
 <head> </head>
 <body>
-{{ .AndrewIndexBody }}
+{{ .AndrewTableOfContents }}
 </body>
 `)},
 		"parentDir/childDir/1-2-3.html": &fstest.MapFile{Data: []byte(`
@@ -295,7 +295,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 <!doctype HTML>
 <head> </head>
 <body>
-<a class="andrewindexbodylink" id="andrewindexbodylink0" href="childDir/1-2-3.html">1-2-3 Page</a>
+<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="childDir/1-2-3.html">1-2-3 Page</a>
 </body>
 `
 
@@ -420,22 +420,22 @@ func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
 	andrew.Main(args, nullLogger)
 }
 
-// TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime is verifying that
-// when the list of links andrew generates for the {{.AndrewIndexBody}} are
+// TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime is verifying that
+// when the list of links andrew generates for the {{.AndrewTableOfContents}} are
 // sorted by mtime, not using the ascii sorting order.
 // This test requires having two files which are in one order when sorted
 // ascii-betically and in another order by date time, so that we can tell
 // what file attribute andrew is actually sorting on.
-func TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime(t *testing.T) {
-	expected := `<a class="andrewindexbodylink" id="andrewindexbodylink0" href="b_newer.html">b_newer.html</a>
-<a class="andrewindexbodylink" id="andrewindexbodylink1" href="a_older.html">a_older.html</a>
+func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) {
+	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newer.html">b_newer.html</a>
+<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="a_older.html">a_older.html</a>
 `
 
 	contentRoot := t.TempDir()
 
 	// fstest.MapFS does not enforce file permissions, so we need a real file system in this test.
 	// above might be wrong
-	err := os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewIndexBody}}"), 0o700)
+	err := os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -456,7 +456,7 @@ func TestArticlesInAndrewIndexBodyAreDefaultSortedByModTime(t *testing.T) {
 	os.Chtimes(contentRoot+"/b_newer.html", now, now)
 	os.Chtimes(contentRoot+"/a_older.html", older, older)
 
-	server := andrew.Server{SiteFiles: os.DirFS(contentRoot), Andrewindexbodytemplate: andrew.AndrewIndexBodyTemplate}
+	server := andrew.Server{SiteFiles: os.DirFS(contentRoot), Andrewtableofcontentstemplate: andrew.AndrewTableOfContentsTemplate}
 
 	page, err := andrew.NewPage(server, "index.html")
 

@@ -21,7 +21,7 @@ func BuildPageBodyWithLinks(siblings []Page, startingPageUrl string, startingPag
 	var links bytes.Buffer
 
 	for i, sibling := range siblings {
-		links.Write(buildAndrewIndexLink(sibling.UrlPath, sibling.Title, i))
+		links.Write(buildAndrewTableOfContentsLink(sibling.UrlPath, sibling.Title, i))
 	}
 
 	templateBuffer := bytes.Buffer{}
@@ -33,7 +33,7 @@ func BuildPageBodyWithLinks(siblings []Page, startingPageUrl string, startingPag
 		panic(err)
 	}
 
-	err = t.Execute(&templateBuffer, map[string]string{"AndrewIndexBody": links.String()})
+	err = t.Execute(&templateBuffer, map[string]string{"AndrewTableOfContents": links.String()})
 	if err != nil {
 		return templateBuffer.Bytes(), err
 	}
@@ -41,9 +41,9 @@ func BuildPageBodyWithLinks(siblings []Page, startingPageUrl string, startingPag
 	return templateBuffer.Bytes(), nil
 }
 
-// buildAndrewIndexLink encapsulates the format of the link
-func buildAndrewIndexLink(urlPath string, title string, cssIdNumber int) []byte {
-	link := fmt.Sprintf("<a class=\"andrewindexbodylink\" id=\"andrewindexbodylink%s\" href=\"%s\">%s</a>", fmt.Sprint(cssIdNumber), urlPath, title)
+// buildAndrewTableOfContentsLink encapsulates the format of the link
+func buildAndrewTableOfContentsLink(urlPath string, title string, cssIdNumber int) []byte {
+	link := fmt.Sprintf("<a class=\"andrewtableofcontentslink\" id=\"andrewtableofcontentslink%s\" href=\"%s\">%s</a>", fmt.Sprint(cssIdNumber), urlPath, title)
 	b := []byte(link)
 	return b
 }

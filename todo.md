@@ -11,5 +11,5 @@
 * github workflow for homebrew
 * html escape the paths you're serving
 * pull out any article summaries into parent card
-* extract the function that builds the index body out of serveIndexPage and pass it in instead. You can also pass in AndrewIndexBody; that
+* extract the function that builds the index body out of serveIndexPage and pass it in instead. You can also pass in AndrewTableOfContents; that
     would give you the flexibility to render different kinds of functions based upon the presence of different template strings.
