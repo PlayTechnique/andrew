@@ -3,6 +3,7 @@ package andrew_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net"
@@ -133,10 +134,10 @@ func TestGettingADirectoryDefaultsToIndexHtml(t *testing.T) {
 </body>
 	`)
 
+	// fstest.MapFS does not create directory-like objects, so we need a real file system in this test.
 	contentRoot := t.TempDir()
 	os.MkdirAll(contentRoot+"/pages", 0o755)
 
-	// fstest.MapFS does not create directory-like objects, so we need a real file system in this test.
 	err := os.WriteFile(contentRoot+"/pages/index.html", expected, 0o755)
 	if err != nil {
 		t.Fatal(err)
@@ -216,7 +217,7 @@ func TestServerServesIndexPageByDefault(t *testing.T) {
 	}
 }
 
-func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T) {
+func TestAndrewTableOfContentsIsGeneratedCorrectlyInContentrootDirectory(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := fstest.MapFS{
@@ -224,7 +225,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T)
 <!doctype HTML>
 <head> </head>
 <body>
-{{ .AndrewIndexBody }}
+{{ .AndrewTableOfContents }}
 </body>
 `)},
 		"pages/1-2-3.html": &fstest.MapFile{Data: []byte(`
@@ -251,7 +252,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T)
 <!doctype HTML>
 <head> </head>
 <body>
-<a class="andrewindexbodylink" id="andrewindexbodylink0" href="pages/1-2-3.html">1-2-3 Page</a>
+<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="pages/1-2-3.html">1-2-3 Page</a>
 </body>
 `
 
@@ -260,7 +261,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInContentrootDirectory(t *testing.T)
 	}
 }
 
-func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
+func TestAndrewTableOfContentsIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := fstest.MapFS{
@@ -268,7 +269,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 <!doctype HTML>
 <head> </head>
 <body>
-{{ .AndrewIndexBody }}
+{{ .AndrewTableOfContents }}
 </body>
 `)},
 		"parentDir/childDir/1-2-3.html": &fstest.MapFile{Data: []byte(`
@@ -295,7 +296,7 @@ func TestAndrewIndexBodyIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
 <!doctype HTML>
 <head> </head>
 <body>
-<a class="andrewindexbodylink" id="andrewindexbodylink0" href="childDir/1-2-3.html">1-2-3 Page</a>
+<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="childDir/1-2-3.html">1-2-3 Page</a>
 </body>
 `
 
@@ -420,6 +421,122 @@ func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
 	andrew.Main(args, nullLogger)
 }
 
+// TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime is verifying that
+// when the list of links andrew generates for the {{.AndrewTableOfContents}} are
+// sorted by mtime, not using the ascii sorting order.
+// This test requires having two files which are in one order when sorted
+// ascii-betically and in another order by date time, so that we can tell
+// what file attribute andrew is actually sorting on.
+func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) {
+	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newer.html">b_newer.html</a>` +
+		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="a_older.html">a_older.html</a>`
+
+	contentRoot := t.TempDir()
+
+	// fstest.MapFS does not enforce file permissions, so we need a real file system in this test.
+	// above might be wrong
+	err := os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(contentRoot+"/a_older.html", []byte{}, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(contentRoot+"/b_newer.html", []byte{}, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now()
+	older := now.Add(-10 * time.Minute)
+
+	os.Chtimes(contentRoot+"/b_newer.html", now, now)
+	os.Chtimes(contentRoot+"/a_older.html", older, older)
+
+	server := andrew.Server{SiteFiles: os.DirFS(contentRoot), Andrewtableofcontentstemplate: andrew.AndrewTableOfContentsTemplate}
+
+	page, err := andrew.NewPage(server, "index.html")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received := page.Content
+
+	if expected != string(received) {
+		t.Errorf(cmp.Diff(expected, received))
+	}
+
+}
+
+// TestArticlesOrderInAndrewTableOfContentsIsOverridable is verifying that
+// when a page contains an andrew-publish-time meta element then the list of links andrew
+// generates for the {{.AndrewTableOfContents}} are
+// sorted by the meta element, then the mtime, not using the ascii sorting order.
+// This test requires having several files which are in one order when sorted
+// by modtime and in another order by andrew-publish-time time, so that we can tell
+// what file attribute andrew is actually sorting on.
+func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
+	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newest.html">b_newest.html</a>` +
+		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="c_newer.html">c_newer.html</a>` +
+		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink2" href="a_older.html">a_older.html</a>`
+
+	contentRoot := t.TempDir()
+
+	// fstest.MapFS does not enforce file permissions, so we need a real file system in this test.
+	// above might be wrong
+	err := os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(contentRoot+"/a_older.html", []byte{}, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(contentRoot+"/c_newer.html", []byte{}, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now()
+
+	newest := now.Add(24 * time.Hour)
+	formattedDate := newest.Format("2006-01-02")
+
+	content := fmt.Sprintf(`<meta name="andrew-publish-time" content="%s">`, formattedDate)
+
+	err = os.WriteFile(contentRoot+"/b_newest.html", []byte(content), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	older := now.Add(-10 * time.Minute)
+
+	os.Chtimes(contentRoot+"/c_newer.html", now, now)
+	os.Chtimes(contentRoot+"/a_older.html", older, older)
+	os.Chtimes(contentRoot+"/b_newest.html", older, older)
+
+	server := andrew.Server{SiteFiles: os.DirFS(contentRoot), Andrewtableofcontentstemplate: andrew.AndrewTableOfContentsTemplate}
+
+	page, err := andrew.NewPage(server, "index.html")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received := page.Content
+
+	if expected != string(received) {
+		t.Errorf(cmp.Diff(expected, received))
+	}
+
+}
+
 // newTestAndrewServer starts an andrew and returns the localhost url that you can run http gets against
 // to retrieve data from that server
 func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
@@ -460,8 +577,6 @@ func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
 
 	// Wait for server to be confirmed ready
 	<-ready
-
-	t.Logf("Running server on %s\n", addr)
 
 	return server
 }

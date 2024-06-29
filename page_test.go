@@ -1,6 +1,7 @@
 package andrew
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -36,5 +37,31 @@ func TestGetTitleReturnsPageFileNameWhenNoTitleInDocument(t *testing.T) {
 
 	if received != "page title" {
 		t.Fatal(cmp.Diff("", received))
+	}
+}
+
+func TestOneMetaTagPopulatesATag(t *testing.T) {
+	expected := map[string]string{"andrew-publish-time": "2025-03-01"}
+	received, err := GetMetaElements([]byte("<meta name=andrew-publish-time content=2025-03-01>"))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !maps.Equal(expected, received) {
+		t.Fatal(cmp.Diff(expected, received))
+	}
+}
+
+func TestMultipleMetaTagsPopulatedWithExpectedElements(t *testing.T) {
+	expected := map[string]string{"andrew-publish-time": "2025-03-01", "andrew-roflcopter": "hippolol"}
+	received, err := GetMetaElements([]byte("<meta name=andrew-publish-time content=2025-03-01> <meta name=andrew-roflcopter content=hippolol>"))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !maps.Equal(expected, received) {
+		t.Fatal(cmp.Diff(expected, received))
 	}
 }
