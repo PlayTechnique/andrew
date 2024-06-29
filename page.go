@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -54,22 +55,7 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 		return Page{}, err
 	}
 
-	page := Page{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle}
-
-	if strings.Contains(pageUrl, "index.html") {
-		siblings, err := server.GetSiblingsAndChildren(page.UrlPath)
-
-		if err != nil {
-			return page, err
-		}
-
-		pageContent, err = BuildPageBodyWithLinks(siblings, pageUrl, page)
-		if err != nil {
-			return Page{}, err
-		}
-
-		page.Content = string(pageContent)
-	}
+	page := Page{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle, PublishTime: pageInfo.ModTime()}
 
 	meta, err := GetMetaElements(pageContent)
 	if err != nil {
@@ -79,14 +65,31 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 	publishTime, ok := meta["andrew-created-at"]
 
 	if ok {
-		page.PublishTime, err = time.Parse(time.DateOnly, publishTime)
+		andrewCreatedAt, err := time.Parse(time.DateOnly, publishTime)
 
 		if err != nil {
+			fmt.Println("could not parse meta tag andrew-created-at using time.Parse. Defaulting to mod time")
 			// log.Logger("could not parse meta tag andrew-created-at using time.Parse. Defaulting to mod time")
-			page.PublishTime = pageInfo.ModTime()
+		} else {
+			page.PublishTime = andrewCreatedAt
 		}
-	} else {
-		page.PublishTime = pageInfo.ModTime()
+	}
+
+	if strings.Contains(pageUrl, "index.html") {
+		siblings, err := server.GetSiblingsAndChildren(page.UrlPath)
+
+		if err != nil {
+			return page, err
+		}
+
+		orderedSiblings := sortPages(siblings)
+
+		pageContent, err = BuildAndrewTOCLinks(orderedSiblings, page)
+		if err != nil {
+			return Page{}, err
+		}
+
+		page.Content = string(pageContent)
 	}
 
 	return page, nil
@@ -94,7 +97,7 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 
 // SetUrlPath updates the UrlPath on a pre-existing Page.
 func (a Page) SetUrlPath(urlPath string) Page {
-	return Page{Title: a.Title, Content: a.Content, UrlPath: urlPath}
+	return Page{Title: a.Title, Content: a.Content, UrlPath: urlPath, PublishTime: a.PublishTime}
 }
 
 // getTagInfo recursively descends an html node tree for the requested tag,
@@ -189,4 +192,13 @@ func titleFromHTMLTitleElement(fileContent []byte) (string, error) {
 		return "", fmt.Errorf("no title element found")
 	}
 	return tagInfo.Data, nil
+}
+
+func sortPages(pages []Page) []Page {
+
+	sort.Slice(pages, func(i, j int) bool {
+		return pages[i].PublishTime.After(pages[j].PublishTime)
+	})
+
+	return pages
 }

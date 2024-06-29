@@ -169,14 +169,14 @@ func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
 
 		// links require a URL relative to the page we're discovering siblings from, not from
 		// the root of the file system
-		page, err := NewPage(a, path)
-		page = page.SetUrlPath(strings.TrimPrefix(path, localContentRoot+"/"))
+		s_page, err := NewPage(a, path)
+		s_page = s_page.SetUrlPath(strings.TrimPrefix(path, localContentRoot+"/"))
 
 		if err != nil {
 			return err
 		}
 
-		pages = append(pages, page)
+		pages = append(pages, s_page)
 
 		return nil
 	})

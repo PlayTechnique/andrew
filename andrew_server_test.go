@@ -427,9 +427,8 @@ func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
 // ascii-betically and in another order by date time, so that we can tell
 // what file attribute andrew is actually sorting on.
 func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) {
-	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newer.html">b_newer.html</a>
-<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="a_older.html">a_older.html</a>
-`
+	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newer.html">b_newer.html</a>` +
+		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="a_older.html">a_older.html</a>`
 
 	contentRoot := t.TempDir()
 
