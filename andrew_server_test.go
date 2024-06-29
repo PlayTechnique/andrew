@@ -3,6 +3,7 @@ package andrew_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net"
@@ -454,6 +455,71 @@ func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) 
 
 	os.Chtimes(contentRoot+"/b_newer.html", now, now)
 	os.Chtimes(contentRoot+"/a_older.html", older, older)
+
+	server := andrew.Server{SiteFiles: os.DirFS(contentRoot), Andrewtableofcontentstemplate: andrew.AndrewTableOfContentsTemplate}
+
+	page, err := andrew.NewPage(server, "index.html")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received := page.Content
+
+	if expected != string(received) {
+		t.Errorf(cmp.Diff(expected, received))
+	}
+
+}
+
+// TestArticlesOrderInAndrewTableOfContentsIsOverridable is verifying that
+// when a page contains an andrew-publish-time meta element then the list of links andrew
+// generates for the {{.AndrewTableOfContents}} are
+// sorted by the meta element, then the mtime, not using the ascii sorting order.
+// This test requires having several files which are in one order when sorted
+// by modtime and in another order by andrew-publish-time time, so that we can tell
+// what file attribute andrew is actually sorting on.
+func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
+	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newest.html">b_newest.html</a>` +
+		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="c_newer.html">c_newer.html</a>` +
+		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink2" href="a_older.html">a_older.html</a>`
+
+	contentRoot := t.TempDir()
+
+	// fstest.MapFS does not enforce file permissions, so we need a real file system in this test.
+	// above might be wrong
+	err := os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(contentRoot+"/a_older.html", []byte{}, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(contentRoot+"/c_newer.html", []byte{}, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now()
+
+	newest := now.Add(24 * time.Hour)
+	formattedDate := newest.Format("2006-01-02")
+
+	content := fmt.Sprintf(`<meta name="andrew-published-at" content="%s">`, formattedDate)
+
+	err = os.WriteFile(contentRoot+"/b_newest.html", []byte(content), 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	older := now.Add(-10 * time.Minute)
+
+	os.Chtimes(contentRoot+"/c_newer.html", now, now)
+	os.Chtimes(contentRoot+"/a_older.html", older, older)
+	os.Chtimes(contentRoot+"/b_newest.html", older, older)
 
 	server := andrew.Server{SiteFiles: os.DirFS(contentRoot), Andrewtableofcontentstemplate: andrew.AndrewTableOfContentsTemplate}
 

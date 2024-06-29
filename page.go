@@ -62,14 +62,14 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 		return Page{}, err
 	}
 
-	publishTime, ok := meta["andrew-created-at"]
+	publishTime, ok := meta["andrew-publish-time"]
 
 	if ok {
 		andrewCreatedAt, err := time.Parse(time.DateOnly, publishTime)
 
 		if err != nil {
-			fmt.Println("could not parse meta tag andrew-created-at using time.Parse. Defaulting to mod time")
-			// log.Logger("could not parse meta tag andrew-created-at using time.Parse. Defaulting to mod time")
+			return Page{}, err
+			// log.Logger("could not parse meta tag andrew-publish-time using time.Parse. Defaulting to mod time")
 		} else {
 			page.PublishTime = andrewCreatedAt
 		}

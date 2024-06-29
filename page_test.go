@@ -41,8 +41,8 @@ func TestGetTitleReturnsPageFileNameWhenNoTitleInDocument(t *testing.T) {
 }
 
 func TestOneMetaTagPopulatesATag(t *testing.T) {
-	expected := map[string]string{"andrew-created-at": "2025-03-01"}
-	received, err := GetMetaElements([]byte("<meta name=andrew-created-at content=2025-03-01>"))
+	expected := map[string]string{"andrew-publish-time": "2025-03-01"}
+	received, err := GetMetaElements([]byte("<meta name=andrew-publish-time content=2025-03-01>"))
 
 	if err != nil {
 		t.Fatal(err)
@@ -54,8 +54,8 @@ func TestOneMetaTagPopulatesATag(t *testing.T) {
 }
 
 func TestMultipleMetaTagsPopulatedWithExpectedElements(t *testing.T) {
-	expected := map[string]string{"andrew-created-at": "2025-03-01", "andrew-roflcopter": "hippolol"}
-	received, err := GetMetaElements([]byte("<meta name=andrew-created-at content=2025-03-01> <meta name=andrew-roflcopter content=hippolol>"))
+	expected := map[string]string{"andrew-publish-time": "2025-03-01", "andrew-roflcopter": "hippolol"}
+	received, err := GetMetaElements([]byte("<meta name=andrew-publish-time content=2025-03-01> <meta name=andrew-roflcopter content=hippolol>"))
 
 	if err != nil {
 		t.Fatal(err)
