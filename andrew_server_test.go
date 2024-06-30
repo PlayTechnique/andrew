@@ -486,8 +486,6 @@ func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
 
 	contentRoot := t.TempDir()
 
-	// fstest.MapFS does not enforce file permissions, so we need a real file system in this test.
-	// above might be wrong
 	err := os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
 	if err != nil {
 		t.Fatal(err)
@@ -506,9 +504,7 @@ func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
 	now := time.Now()
 
 	newest := now.Add(24 * time.Hour)
-	formattedDate := newest.Format("2006-01-02")
-
-	content := fmt.Sprintf(`<meta name="andrew-publish-time" content="%s">`, formattedDate)
+	content := fmt.Sprintf(`<meta name="andrew-publish-time" content="%s">`, newest.Format("2006-01-02"))
 
 	err = os.WriteFile(contentRoot+"/b_newest.html", []byte(content), 0o700)
 	if err != nil {
