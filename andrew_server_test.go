@@ -533,6 +533,57 @@ func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
 
 }
 
+// TestInvalidMetaContentDoesNotCrashTheWebServer checks that if there's
+// garbage data inside a meta element named andrew-publish-at that we do
+// something sensible rather than crashing the web server and emitting a 502.
+func TestInvalidAndrewPublishTimeContentDoesNotCrashTheWebServer(t *testing.T) {
+	t.Parallel()
+
+	contentRoot := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(`
+<!doctype HTML>
+<head> </head>
+<body>
+{{ .AndrewTableOfContents }}
+</body>
+`)},
+		"a.html": &fstest.MapFile{Data: []byte(`
+<!doctype HTML>
+<head>
+<meta name="andrew-publish-time" content="<no value>"
+</head>
+`)},
+	}
+
+	s := newTestAndrewServer(t, contentRoot)
+
+	resp, err := http.Get(s.BaseUrl)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected http 200, received %d", resp.StatusCode)
+	}
+
+	received, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedIndex := `
+<!doctype HTML>
+<head> </head>
+<body>
+<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="a.html">a.html</a>
+</body>
+`
+
+	if !slices.Equal(received, []byte(expectedIndex)) {
+		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expectedIndex, received))
+	}
+}
+
 // newTestAndrewServer starts an andrew and returns the localhost url that you can run http gets against
 // to retrieve data from that server
 func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {

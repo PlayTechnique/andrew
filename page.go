@@ -67,10 +67,10 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 	if ok {
 		andrewCreatedAt, err := time.Parse(time.DateOnly, publishTime)
 
-		if err != nil {
-			return Page{}, err
-			// log.Logger("could not parse meta tag andrew-publish-time using time.Parse. Defaulting to mod time")
-		} else {
+		// The errors that come out of time.Parse are all not interesting to me; we just want
+		// to use those errors to tell us if it's safe to set PublishTime to the value of the
+		// meta element.
+		if err == nil {
 			page.PublishTime = andrewCreatedAt
 		}
 	}
