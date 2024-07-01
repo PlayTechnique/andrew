@@ -501,7 +501,7 @@ func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 
 	newest := now.Add(24 * time.Hour)
 	content := fmt.Sprintf(`<meta name="andrew-publish-time" content="%s">`, newest.Format("2006-01-02"))
@@ -511,11 +511,11 @@ func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	older := now.Add(-10 * time.Minute)
+	older := now.Add(-24 * time.Hour)
 
-	os.Chtimes(contentRoot+"/c_newer.html", now, now)
 	os.Chtimes(contentRoot+"/a_older.html", older, older)
 	os.Chtimes(contentRoot+"/b_newest.html", older, older)
+	os.Chtimes(contentRoot+"/c_newer.html", now, now)
 
 	server := andrew.Server{SiteFiles: os.DirFS(contentRoot)}
 
