@@ -69,16 +69,15 @@ Andrew parses meta tags and makes them accessible on its AndrewPage object.
 For a meta element to be picked up, it must be formatted with andrew- prepending the meta element's name, like this `<meta name="andrew-<rest of the name>" value="your-value">`
 
 ### valid meta elements
-<meta name="andrew-created-on" value="2024-03-12">
+<meta name="andrew-publish-time" value="2024-03-12">
 <meta name="andrew-tag" value="diary entry">
 
 ## ordering of pages
-If a page contains the meta element `<meta name=andrew-created-on value="2024-03-12">` in its `<head>`, Andrew orders on these tags.
+If a page contains the meta element `<meta name=andrew-publish-time value="2024-03-12">` in its `<head>`, Andrew orders on these tags.
 If the page does not contain the meta element, it uses the mtime of the file to try and determine ordering. This means that if you edit a page
-that does not contain the `andrew-created-on` element, then you will push it back to the top of the list.
+that does not contain the `andrew-publish-time` element, then you will push it back to the top of the list.
 
-If your page contains an `andrew-created-on` meta element, the time must be formatted in accordance with <SOME STANDARD HERE>. If your `andrew-created-on`
-contains a date but not a time, Andrew assumes the page was created at midnight.
+If your page contains an `andrew-publish-time` meta element, the time must be formatted in YYYY-MM-DD format. Minutes and hours aren't supported yet.
 
 ## sitemap.xml
 When the endpoint `baseUrl/sitemap.xml` is visited, Andrew will automatically generate a sitemap containing paths to all html pages.
