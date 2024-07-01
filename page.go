@@ -42,11 +42,6 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 		return Page{}, err
 	}
 
-	pageInfo, err := fs.Stat(server.SiteFiles, pageUrl)
-	if err != nil {
-		return Page{}, err
-	}
-
 	// The fs.FS documentation notes that paths should not start with a leading slash.
 	pagePath := strings.TrimPrefix(pageUrl, "/")
 
@@ -55,35 +50,26 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 		return Page{}, err
 	}
 
-	page := Page{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle, PublishTime: pageInfo.ModTime()}
+	pagePublishTime, err := getPublishTime(server.SiteFiles, pagePath, pageContent)
 
-	meta, err := GetMetaElements(pageContent)
 	if err != nil {
 		return Page{}, err
 	}
 
-	publishTime, ok := meta["andrew-publish-time"]
+	page := Page{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle, PublishTime: pagePublishTime}
 
-	if ok {
-		andrewCreatedAt, err := time.Parse(time.DateOnly, publishTime)
+	siblings, err := server.GetSiblingsAndChildren(page.UrlPath)
 
-		// The errors that come out of time.Parse are all not interesting to me; we just want
-		// to use those errors to tell us if it's safe to set PublishTime to the value of the
-		// meta element.
-		if err == nil {
-			page.PublishTime = andrewCreatedAt
-		}
+	if err != nil {
+		return page, err
 	}
 
-	if strings.Contains(pageUrl, "index.html") {
-		siblings, err := server.GetSiblingsAndChildren(page.UrlPath)
+	orderedSiblings := sortPages(siblings)
 
-		if err != nil {
-			return page, err
-		}
-
-		orderedSiblings := sortPages(siblings)
-
+	// Only execute templates for html files, not pngs or other kinds of file.
+	// This is so the template rendering engine doesn't receive a binary blob, which
+	// makes it panic.
+	if strings.HasSuffix(page.UrlPath, "html") {
 		pageContent, err = RenderTemplate(orderedSiblings, page)
 		if err != nil {
 			return Page{}, err
@@ -95,9 +81,40 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 	return page, nil
 }
 
+func getPublishTime(siteFiles fs.FS, pagePath string, pageContent []byte) (time.Time, error) {
+	pageInfo, err := fs.Stat(siteFiles, pagePath)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	publishTime := pageInfo.ModTime()
+
+	meta, err := GetMetaElements(pageContent)
+	if err != nil {
+		return publishTime, err
+	}
+
+	//TODO: extract the publishtime stuff to a single function
+	metaPublishTime, ok := meta["andrew-publish-time"]
+
+	if ok {
+		andrewCreatedAt, err := time.Parse(time.DateOnly, metaPublishTime)
+
+		// The errors that come out of time.Parse are all not interesting to me; we just want
+		// to use those errors to tell us if it's safe to set PublishTime to the value of the
+		// meta element.
+		if err == nil {
+			publishTime = andrewCreatedAt
+		}
+	}
+
+	return publishTime, nil
+}
+
 // SetUrlPath updates the UrlPath on a pre-existing Page.
-func (a Page) SetUrlPath(urlPath string) Page {
-	return Page{Title: a.Title, Content: a.Content, UrlPath: urlPath, PublishTime: a.PublishTime}
+func SetUrlPath(page Page, urlPath string) Page {
+	page.UrlPath = urlPath
+	return page
 }
 
 // getTagInfo recursively descends an html node tree for the requested tag,

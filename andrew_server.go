@@ -166,13 +166,28 @@ func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
 			return nil
 		}
 
-		// links require a URL relative to the page we're discovering siblings from, not from
-		// the root of the file system
-		s_page, err := NewPage(a, path)
-		s_page = s_page.SetUrlPath(strings.TrimPrefix(path, localContentRoot+"/"))
-
+		pageContent, err := fs.ReadFile(a.SiteFiles, path)
 		if err != nil {
 			return err
+		}
+
+		title, err := getTitle(path, pageContent)
+		if err != nil {
+			return err
+		}
+
+		publishTime, err := getPublishTime(a.SiteFiles, path, pageContent)
+		if err != nil {
+			return err
+		}
+
+		// links require a URL relative to the page we're discovering siblings from, not from
+		// the root of the file system
+		s_page := Page{
+			Title:       title,
+			UrlPath:     strings.TrimPrefix(path, localContentRoot+"/"),
+			Content:     string(pageContent),
+			PublishTime: publishTime,
 		}
 
 		pages = append(pages, s_page)
