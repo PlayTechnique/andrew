@@ -84,7 +84,7 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 
 		orderedSiblings := sortPages(siblings)
 
-		pageContent, err = BuildAndrewTOCLinks(orderedSiblings, page)
+		pageContent, err = RenderTemplate(orderedSiblings, page)
 		if err != nil {
 			return Page{}, err
 		}

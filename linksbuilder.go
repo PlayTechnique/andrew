@@ -6,11 +6,11 @@ import (
 	"text/template"
 )
 
-// BuildAndrewTOCLinks receives the path to a file, currently normally an index file.
+// RenderTemplate receives the path to a file, currently normally an index file.
 // It traverses the file system starting at the directory containing
 // that file, finds all html files that are _not_ index.html files and returns them
 // as a list of html links to those pages.
-func BuildAndrewTOCLinks(siblings []Page, startingPage Page) ([]byte, error) {
+func RenderTemplate(siblings []Page, startingPage Page) ([]byte, error) {
 
 	var links bytes.Buffer
 
