@@ -24,10 +24,9 @@ type Server struct {
 }
 
 const (
-	AndrewTableOfContentsTemplate = "AndrewTableOfContents"
-	DefaultContentRoot            = "."
-	DefaultAddress                = ":8080"
-	DefaultBaseUrl                = "http://localhost:8080"
+	DefaultContentRoot = "."
+	DefaultAddress     = ":8080"
+	DefaultBaseUrl     = "http://localhost:8080"
 )
 
 // NewServer is a constructor. Its primary role is setting the default andrewtableofcontentstemplate.

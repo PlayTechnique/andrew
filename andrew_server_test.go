@@ -456,7 +456,7 @@ func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) 
 	os.Chtimes(contentRoot+"/b_newer.html", now, now)
 	os.Chtimes(contentRoot+"/a_older.html", older, older)
 
-	server := andrew.Server{SiteFiles: os.DirFS(contentRoot), Andrewtableofcontentstemplate: andrew.AndrewTableOfContentsTemplate}
+	server := andrew.Server{SiteFiles: os.DirFS(contentRoot)}
 
 	page, err := andrew.NewPage(server, "index.html")
 
@@ -517,7 +517,7 @@ func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
 	os.Chtimes(contentRoot+"/a_older.html", older, older)
 	os.Chtimes(contentRoot+"/b_newest.html", older, older)
 
-	server := andrew.Server{SiteFiles: os.DirFS(contentRoot), Andrewtableofcontentstemplate: andrew.AndrewTableOfContentsTemplate}
+	server := andrew.Server{SiteFiles: os.DirFS(contentRoot)}
 
 	page, err := andrew.NewPage(server, "index.html")
 
