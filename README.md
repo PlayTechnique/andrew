@@ -21,7 +21,7 @@ apache's lead on expecting index.html in any directory as a default page.
 
 address is the address you want to bind the server to. Specify as an address:port combination.
 
-baseUrl is the hostname you're serving from. This is a part of sitemaps and rss feeds. It contains the protocol
+baseUrl is the hostname you're serving from. This is a part of sitemaps and future rss feeds. It also contains the protocol
 e.g. `https://playtechnique.io`
 
 
