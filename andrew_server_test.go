@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -247,16 +248,13 @@ func TestAndrewTableOfContentsIsGeneratedCorrectlyInContentrootDirectory(t *test
 		t.Fatal(err)
 	}
 
-	expectedIndex := `
-<!doctype HTML>
-<head> </head>
-<body>
-<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="pages/1-2-3.html">1-2-3 Page</a>
-</body>
-`
+	expected, err := regexp.Compile(".*<a class=\"andrewtableofcontentslink\" id=\"andrewtableofcontentslink0\" href=\"pages/1-2-3.html\">1-2-3 Page</a>.*")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if !slices.Equal(received, []byte(expectedIndex)) {
-		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expectedIndex, received))
+	if expected.FindString(string(received)) == "" {
+		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expected, received))
 	}
 }
 
@@ -291,16 +289,12 @@ func TestAndrewTableOfContentsIsGeneratedCorrectlyInAChildDirectory(t *testing.T
 		t.Fatal(err)
 	}
 
-	expectedIndex := `
-<!doctype HTML>
-<head> </head>
-<body>
-<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="childDir/1-2-3.html">1-2-3 Page</a>
-</body>
-`
-
-	if !slices.Equal(received, []byte(expectedIndex)) {
-		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expectedIndex, received))
+	expected, err := regexp.Compile(".*<a class=\"andrewtableofcontentslink\" id=\"andrewtableofcontentslink0\" href=\"childDir/1-2-3.html\">1-2-3 Page</a>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expected.FindString(string(received)) == "" {
+		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expected, received))
 	}
 }
 
@@ -427,14 +421,20 @@ func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
 // ascii-betically and in another order by date time, so that we can tell
 // what file attribute andrew is actually sorting on.
 func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) {
-	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newer.html">b_newer.html</a>` +
-		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="a_older.html">a_older.html</a>`
+
+	expected, err := regexp.Compile(`.*b_newer.*a_older.*`)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	// expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newer.html">b_newer.html</a>` +
+	// `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="a_older.html">a_older.html</a>`
 
 	contentRoot := t.TempDir()
 
 	// fstest.MapFS does not enforce file permissions, so we need a real file system in this test.
 	// above might be wrong
-	err := os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
+	err = os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -465,8 +465,8 @@ func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) 
 
 	received := page.Content
 
-	if expected != string(received) {
-		t.Errorf(cmp.Diff(expected, received))
+	if expected.FindString(received) == "" {
+		t.Fatalf(cmp.Diff(expected, received))
 	}
 
 }

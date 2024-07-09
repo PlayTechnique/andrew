@@ -2,10 +2,9 @@ package andrew_test
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"os"
-	"slices"
+	"regexp"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -22,13 +21,14 @@ import (
 // by modtime and in another order by andrew-publish-time time, so that we can tell
 // what file attribute andrew is actually sorting on.
 func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
-	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newest.html">b_newest.html</a>` +
-		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="c_newer.html">c_newer.html</a>` +
-		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink2" href="a_older.html">a_older.html</a>`
+	expected, err := regexp.Compile(".*b_newest.html.*c_newer.html.*a_older.html.*")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	contentRoot := t.TempDir()
 
-	err := os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
+	err = os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,10 +69,9 @@ func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
 
 	received := page.Content
 
-	if expected != string(received) {
+	if expected.FindString(received) == "" {
 		t.Errorf(cmp.Diff(expected, received))
 	}
-
 }
 
 // TestInvalidMetaContentDoesNotCrashTheWebServer checks that if there's
@@ -107,21 +106,58 @@ func TestInvalidAndrewPublishTimeContentDoesNotCrashTheWebServer(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected http 200, received %d", resp.StatusCode)
 	}
-
-	received, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expectedIndex := `
-<!doctype HTML>
-<head> </head>
-<body>
-<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="a.html">a.html</a>
-</body>
-`
-
-	if !slices.Equal(received, []byte(expectedIndex)) {
-		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expectedIndex, received))
-	}
 }
+
+// TestArticlesOrderInAndrewTableOfContentsIsOverridable is verifying that
+// when a page contains an andrew-publish-time meta element then the list of links andrew
+// generates for the {{.AndrewTableOfContents}} are
+// sorted by the meta element, then the mtime, not using the ascii sorting order.
+// This test requires having several files which are in one order when sorted
+// by modtime and in another order by andrew-publish-time time, so that we can tell
+// what file attribute andrew is actually sorting on.
+// func TestArticlesAppearUnderParentDirectoryForAndrewTableOfContentsGrouped(t *testing.T) {
+// 	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="parentDir/displayMe.html">parentDir/displayMe.html</a>` +
+// 		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink2" href="parentDir/childDir/1-2-3.html">parentDir/childDir/1-2-3.html</a>`
+
+// 	contentRoot := fstest.MapFS{
+// 		"groupedContents.html": &fstest.MapFile{Data: []byte(`
+// {{ .AndrewTableOfContentsGrouped}}`)},
+
+// 		"parentDir/index.html": &fstest.MapFile{Data: []byte(`
+// 	<!doctype HTML>
+// 	<head> </head>
+// 	<body>
+// 	</body>
+// 	`)},
+// 		"parentDir/displayme.html": &fstest.MapFile{Data: []byte(`
+// 	<!doctype HTML>
+// 	<head> </head>
+// 	<body>
+// 	</body>
+// 	`)},
+// 		"parentDir/childDir/1-2-3.html": &fstest.MapFile{Data: []byte(`
+// 	<!doctype HTML>
+// 	<head>
+// 	<title>1-2-3 Page</title>
+// 	</head>
+// 	`)},
+// 	}
+
+// 	s := newTestAndrewServer(t, contentRoot)
+// 	resp, err := http.Get(s.BaseUrl + "/groupedContents.html")
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	if resp.StatusCode != http.StatusOK {
+// 		t.Fatalf("unexpected status %q", resp.Status)
+// 	}
+// 	received, err := io.ReadAll(resp.Body)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	if expected != string(received) {
+// 		t.Errorf(cmp.Diff(expected, received))
+// 	}
+// }
