@@ -96,8 +96,7 @@ func TestInvalidAndrewPublishTimeContentDoesNotCrashTheWebServer(t *testing.T) {
 // what file attribute andrew is actually sorting on.
 func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsGrouped(t *testing.T) {
 	expected := `<ul style="padding-left: 10px;">
-<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="groupedContents.html">groupedContents.html</a> - <span class="publish-date">0001-01-01</span></li>
-<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="otherPage.html">otherPage.html</a> - <span class="publish-date">0001-01-01</span></li>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="otherPage.html">otherPage.html</a> - <span class="publish-date">0001-01-01</span></li>
 </ul>
 `
 	contentRoot := fstest.MapFS{

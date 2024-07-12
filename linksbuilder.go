@@ -72,6 +72,7 @@ func renderAndrewTableOfContentsWithDirectories(siblings []Page, startingPage Pa
 	links.Write([]byte("<ul style=\"padding-left: 10px;\">\n"))
 
 	for parentDir, siblingPages := range directoriesAndContents {
+
 		if linkCount != 0 {
 			links.Write([]byte("<ul>\n"))
 		}
@@ -79,6 +80,11 @@ func renderAndrewTableOfContentsWithDirectories(siblings []Page, startingPage Pa
 			links.Write([]byte("<h5 style=\"display: inline;\">" + parentDir + "</h5>\n"))
 		}
 		for _, sibling := range siblingPages {
+			//Do not include the page we're starting with. These and index.html pages are both to be skipped.
+			if sibling == startingPage {
+				continue
+			}
+
 			links.Write(buildAndrewTableOfContentsLink(sibling.UrlPath, sibling.Title, sibling.PublishTime.Format(time.DateOnly), linkCount))
 			linkCount = linkCount + 1
 		}
