@@ -422,13 +422,11 @@ func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
 // what file attribute andrew is actually sorting on.
 func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) {
 
-	expected, err := regexp.Compile(`.*b_newer.*a_older.*`)
+	expectedOrder, err := regexp.Compile(`(?s).*b_newer.*a_older.*`)
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	// expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newer.html">b_newer.html</a>` +
-	// `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="a_older.html">a_older.html</a>`
 
 	contentRoot := t.TempDir()
 
@@ -465,8 +463,8 @@ func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) 
 
 	received := page.Content
 
-	if expected.FindString(received) == "" {
-		t.Fatalf(cmp.Diff(expected, received))
+	if expectedOrder.FindString(received) == "" {
+		t.Fatalf(cmp.Diff(expectedOrder, received))
 	}
 
 }
