@@ -95,9 +95,11 @@ func TestInvalidAndrewPublishTimeContentDoesNotCrashTheWebServer(t *testing.T) {
 // by modtime and in another order by andrew-publish-time time, so that we can tell
 // what file attribute andrew is actually sorting on.
 func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsGrouped(t *testing.T) {
-	expected := `<ul style="padding-left: 10px;">
+	expected := `<div class="AndrewTableOfContentsWithDirectories">
+<ul>
 <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="otherPage.html">otherPage.html</a> - <span class="publish-date">0001-01-01</span></li>
 </ul>
+</div>
 `
 	contentRoot := fstest.MapFS{
 		"groupedContents.html": &fstest.MapFile{Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
@@ -125,39 +127,35 @@ func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsGrouped(t 
 	}
 }
 
-// func TestArticlesAppearUnderParentDirectoryForAndrewTableOfContentsGrouped(t *testing.T) {
-// 	expected := `<ul style="padding-left: 10px;">
-// <h5 style="display: inline;">parentDir/</h5>
-// <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="parentDir/displayme.html">displayme.html</a></li>
-// <h5 style="display: inline;">childDir/</h5>
-// <ul>
-// <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="parentDir/childDir/1-2-3.html">1-2-3.html</li>
-// </ul>
-// </ul>
-// </ul>
-// `
-// 	contentRoot := fstest.MapFS{
-// 		"groupedContents.html":          &fstest.MapFile{Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
-// 		"parentDir/index.html":          &fstest.MapFile{},
-// 		"parentDir/displayme.html":      &fstest.MapFile{},
-// 		"parentDir/childDir/1-2-3.html": &fstest.MapFile{},
-// 	}
+func TestArticlesFromChildDirectoriesAreNotShown(t *testing.T) {
+	expected := `<div class="AndrewTableOfContentsWithDirectories"><ul>
+<h5>parentDir/</h5>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="parentDir/displayme.html">displayme.html</a> - <span class="publish-date">0001-01-01</span></li>
+</ul>
+</div>
+`
+	contentRoot := fstest.MapFS{
+		"groupedContents.html":          &fstest.MapFile{Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+		"parentDir/index.html":          &fstest.MapFile{},
+		"parentDir/displayme.html":      &fstest.MapFile{},
+		"parentDir/childDir/1-2-3.html": &fstest.MapFile{},
+	}
 
-// 	s := newTestAndrewServer(t, contentRoot)
-// 	resp, err := http.Get(s.BaseUrl + "/groupedContents.html")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	s := newTestAndrewServer(t, contentRoot)
+	resp, err := http.Get(s.BaseUrl + "/groupedContents.html")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	if resp.StatusCode != http.StatusOK {
-// 		t.Fatalf("unexpected status %q", resp.Status)
-// 	}
-// 	received, err := io.ReadAll(resp.Body)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status %q", resp.Status)
+	}
+	received, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	if expected != string(received) {
-// 		t.Errorf(cmp.Diff(expected, received))
-// 	}
-// }
+	if expected != string(received) {
+		t.Errorf("Expected:\n" + expected + "\n Received:\n" + string(received))
+	}
+}

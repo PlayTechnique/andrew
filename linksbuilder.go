@@ -52,34 +52,22 @@ func renderAndrewTableOfContentsWithDirectories(siblings []Page, startingPage Pa
 		directoriesAndContents[path] = append(directoriesAndContents[path], sibling)
 	}
 
-	keys := make([]string, 0, len(directoriesAndContents))
-	for k := range directoriesAndContents {
-		keys = append(keys, k)
-	}
-
-	sort.Slice(keys, func(i, j int) bool {
-		slashesI := countSlashes(keys[i])
-		slashesJ := countSlashes(keys[j])
-		if slashesI == slashesJ {
-			return keys[i] < keys[j] // Lexicographical order if the number of slashes is the same
-		}
-		return slashesI < slashesJ // Primary order by number of slashes
-	})
+	// Lexicographical order if the number of slashes is the same
+	// Primary order by number of slashes
+	directoriesInDepthOrder := keysOrderedByNumberOfSlashes(directoriesAndContents)
 
 	linkCount := 0
 	dirCount := 1
 
-	links.Write([]byte("<ul style=\"padding-left: 10px;\">\n"))
+	links.Write([]byte("<div class=\"AndrewTableOfContentsWithDirectories\">\n"))
+	for _, parentDir := range directoriesInDepthOrder {
 
-	for parentDir, siblingPages := range directoriesAndContents {
+		links.Write([]byte("<ul>\n"))
 
-		if linkCount != 0 {
-			links.Write([]byte("<ul>\n"))
-		}
 		if parentDir != "" {
 			links.Write([]byte("<h5 style=\"display: inline;\">" + parentDir + "</h5>\n"))
 		}
-		for _, sibling := range siblingPages {
+		for _, sibling := range directoriesAndContents[parentDir] {
 			//Do not include the page we're starting with. These and index.html pages are both to be skipped.
 			if sibling == startingPage {
 				continue
@@ -88,12 +76,15 @@ func renderAndrewTableOfContentsWithDirectories(siblings []Page, startingPage Pa
 			links.Write(buildAndrewTableOfContentsLink(sibling.UrlPath, sibling.Title, sibling.PublishTime.Format(time.DateOnly), linkCount))
 			linkCount = linkCount + 1
 		}
+		// If I write the </ul> for dirCount 0 here, it closes the <ul> that establishes the style
+		// of padding that we have. I don't want that.
+		if dirCount != 0 {
+			links.Write([]byte("</ul>\n"))
+		}
 		dirCount = dirCount + 1
 	}
 
-	for range dirCount - 1 {
-		links.Write([]byte("</ul>\n"))
-	}
+	links.Write([]byte("</div>\n"))
 
 	t, err := template.New(startingPage.UrlPath).Parse(startingPage.Content)
 
@@ -107,6 +98,23 @@ func renderAndrewTableOfContentsWithDirectories(siblings []Page, startingPage Pa
 	}
 
 	return templateBuffer.Bytes(), nil
+}
+
+func keysOrderedByNumberOfSlashes(directoriesAndContents map[string][]Page) []string {
+	keysOrderedByLength := make([]string, 0, len(directoriesAndContents))
+	for k := range directoriesAndContents {
+		keysOrderedByLength = append(keysOrderedByLength, k)
+	}
+
+	sort.Slice(keysOrderedByLength, func(i, j int) bool {
+		slashesI := countSlashes(keysOrderedByLength[i])
+		slashesJ := countSlashes(keysOrderedByLength[j])
+		if slashesI == slashesJ {
+			return keysOrderedByLength[i] < keysOrderedByLength[j]
+		}
+		return slashesI < slashesJ
+	})
+	return keysOrderedByLength
 }
 
 func renderAndrewTableOfContents(siblings []Page, startingPage Page) ([]byte, error) {
