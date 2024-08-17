@@ -64,13 +64,13 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 		return page, err
 	}
 
-	orderedSiblings := sortPages(siblings)
+	orderedSiblings := sortPagesByDate(siblings)
 
 	// Only execute templates for html files, not pngs or other kinds of file.
 	// This is so the template rendering engine doesn't receive a binary blob, which
 	// makes it panic.
 	if strings.HasSuffix(page.UrlPath, "html") {
-		pageContent, err = RenderTemplate(orderedSiblings, page)
+		pageContent, err = RenderTemplates(orderedSiblings, page)
 		if err != nil {
 			return Page{}, err
 		}
@@ -211,7 +211,7 @@ func titleFromHTMLTitleElement(fileContent []byte) (string, error) {
 	return tagInfo.Data, nil
 }
 
-func sortPages(pages []Page) []Page {
+func sortPagesByDate(pages []Page) []Page {
 
 	sort.Slice(pages, func(i, j int) bool {
 		return pages[i].PublishTime.After(pages[j].PublishTime)

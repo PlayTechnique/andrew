@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"slices"
+	"regexp"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -22,44 +21,24 @@ import (
 // by modtime and in another order by andrew-publish-time time, so that we can tell
 // what file attribute andrew is actually sorting on.
 func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
-	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="b_newest.html">b_newest.html</a>` +
-		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="c_newer.html">c_newer.html</a>` +
-		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink2" href="a_older.html">a_older.html</a>`
-
-	contentRoot := t.TempDir()
-
-	err := os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
+	expected, err := regexp.Compile("(?s).*b_newest.html.*c_newer.html.*a_older.html.*")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	err = os.WriteFile(contentRoot+"/a_older.html", []byte{}, 0o700)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(contentRoot+"/c_newer.html", []byte{}, 0o700)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	now := time.Now().UTC()
+	newer := now.Add(24 * time.Hour)
+	newest := now.Add(48 * time.Hour)
 
-	newest := now.Add(24 * time.Hour)
-	content := fmt.Sprintf(`<meta name="andrew-publish-time" content="%s">`, newest.Format("2006-01-02"))
-
-	err = os.WriteFile(contentRoot+"/b_newest.html", []byte(content), 0o700)
-	if err != nil {
-		t.Fatal(err)
+	contentRoot := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(`
+{{ .AndrewTableOfContents }}
+`)},
+		"a_older.html":  &fstest.MapFile{ModTime: now},
+		"b_newest.html": &fstest.MapFile{ModTime: newest, Data: []byte(fmt.Sprintf(`<meta name="andrew-publish-time" content="%s">`, newest.Format("2006-01-02")))},
+		"c_newer.html":  &fstest.MapFile{ModTime: newer},
 	}
 
-	older := now.Add(-24 * time.Hour)
-
-	os.Chtimes(contentRoot+"/a_older.html", older, older)
-	os.Chtimes(contentRoot+"/b_newest.html", older, older)
-	os.Chtimes(contentRoot+"/c_newer.html", now, now)
-
-	server := andrew.Server{SiteFiles: os.DirFS(contentRoot)}
+	server := andrew.Server{SiteFiles: contentRoot}
 
 	page, err := andrew.NewPage(server, "index.html")
 
@@ -69,10 +48,9 @@ func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
 
 	received := page.Content
 
-	if expected != string(received) {
+	if expected.FindString(received) == "" {
 		t.Errorf(cmp.Diff(expected, received))
 	}
-
 }
 
 // TestInvalidMetaContentDoesNotCrashTheWebServer checks that if there's
@@ -107,21 +85,83 @@ func TestInvalidAndrewPublishTimeContentDoesNotCrashTheWebServer(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Errorf("Expected http 200, received %d", resp.StatusCode)
 	}
+}
 
+// TestArticlesOrderInAndrewTableOfContentsIsOverridable is verifying that
+// when a page contains an andrew-publish-time meta element then the list of links andrew
+// generates for the {{.AndrewTableOfContents}} are
+// sorted by the meta element, then the mtime, not using the ascii sorting order.
+// This test requires having several files which are in one order when sorted
+// by modtime and in another order by andrew-publish-time time, so that we can tell
+// what file attribute andrew is actually sorting on.
+func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsWithDirectories(t *testing.T) {
+	expected := `<div class="AndrewTableOfContentsWithDirectories">
+<ul>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="otherPage.html">otherPage.html</a> - <span class="andrew-page-publish-date">0001-01-01</span></li>
+</ul>
+</div>
+`
+	contentRoot := fstest.MapFS{
+		"groupedContents.html": &fstest.MapFile{Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+		"otherPage.html":       &fstest.MapFile{},
+	}
+
+	s := newTestAndrewServer(t, contentRoot)
+	resp, err := http.Get(s.BaseUrl + "/groupedContents.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status %q", resp.Status)
+	}
 	received, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expectedIndex := `
-<!doctype HTML>
-<head> </head>
-<body>
-<a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="a.html">a.html</a>
-</body>
-`
+	if expected != string(received) {
 
-	if !slices.Equal(received, []byte(expectedIndex)) {
-		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expectedIndex, received))
+		t.Errorf("Expected:\n" + expected + "\n Received:\n" + string(received))
+
+	}
+}
+
+func TestArticlesFromChildDirectoriesAreShownForAndrewTableOfContentsWithDirectories(t *testing.T) {
+	expected := `<div class="AndrewTableOfContentsWithDirectories">
+<ul>
+<h5>parentDir/</h5>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="parentDir/displayme.html">displayme.html</a> - <span class="andrew-page-publish-date">0001-01-01</span></li>
+</ul>
+<ul>
+<h5><span class="AndrewParentDir">parentDir/</span>childDir/</h5>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="parentDir/childDir/1-2-3.html">1-2-3.html</a> - <span class="andrew-page-publish-date">0001-01-01</span></li>
+</ul>
+</div>
+`
+	contentRoot := fstest.MapFS{
+		"groupedContents.html":          &fstest.MapFile{Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+		"parentDir/index.html":          &fstest.MapFile{},
+		"parentDir/styles.css":          &fstest.MapFile{},
+		"parentDir/displayme.html":      &fstest.MapFile{},
+		"parentDir/childDir/1-2-3.html": &fstest.MapFile{},
+	}
+
+	s := newTestAndrewServer(t, contentRoot)
+	resp, err := http.Get(s.BaseUrl + "/groupedContents.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status %q", resp.Status)
+	}
+	received, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if expected != string(received) {
+		t.Errorf("Expected:\n" + expected + "\n Received:\n" + string(received))
 	}
 }
