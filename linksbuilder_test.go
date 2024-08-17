@@ -142,6 +142,7 @@ func TestArticlesFromChildDirectoriesAreShownForAndrewTableOfContentsWithDirecto
 	contentRoot := fstest.MapFS{
 		"groupedContents.html":          &fstest.MapFile{Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
 		"parentDir/index.html":          &fstest.MapFile{},
+		"parentDir/styles.css":          &fstest.MapFile{},
 		"parentDir/displayme.html":      &fstest.MapFile{},
 		"parentDir/childDir/1-2-3.html": &fstest.MapFile{},
 	}
