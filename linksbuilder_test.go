@@ -2,8 +2,8 @@ package andrew_test
 
 import (
 	"fmt"
+	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"testing"
 	"testing/fstest"
@@ -21,45 +21,24 @@ import (
 // by modtime and in another order by andrew-publish-time time, so that we can tell
 // what file attribute andrew is actually sorting on.
 func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
-	expected, err := regexp.Compile(".*b_newest.html.*c_newer.html.*a_older.html.*")
+	expected, err := regexp.Compile("(?s).*b_newest.html.*c_newer.html.*a_older.html.*")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	contentRoot := t.TempDir()
-
-	err = os.WriteFile(contentRoot+"/index.html", []byte("{{.AndrewTableOfContents}}"), 0o700)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(contentRoot+"/a_older.html", []byte{}, 0o700)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(contentRoot+"/c_newer.html", []byte{}, 0o700)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	now := time.Now().UTC()
+	newer := now.Add(24 * time.Hour)
+	newest := now.Add(48 * time.Hour)
 
-	newest := now.Add(24 * time.Hour)
-	content := fmt.Sprintf(`<meta name="andrew-publish-time" content="%s">`, newest.Format("2006-01-02"))
-
-	err = os.WriteFile(contentRoot+"/b_newest.html", []byte(content), 0o700)
-	if err != nil {
-		t.Fatal(err)
+	contentRoot := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(`
+{{ .AndrewTableOfContents }}
+`)},
+		"a_older.html":  &fstest.MapFile{ModTime: now},
+		"b_newest.html": &fstest.MapFile{ModTime: newest, Data: []byte(fmt.Sprintf(`<meta name="andrew-publish-time" content="%s">`, newest.Format("2006-01-02")))},
+		"c_newer.html":  &fstest.MapFile{ModTime: newer},
 	}
 
-	older := now.Add(-24 * time.Hour)
-
-	os.Chtimes(contentRoot+"/a_older.html", older, older)
-	os.Chtimes(contentRoot+"/b_newest.html", older, older)
-	os.Chtimes(contentRoot+"/c_newer.html", now, now)
-
-	server := andrew.Server{SiteFiles: os.DirFS(contentRoot)}
+	server := andrew.Server{SiteFiles: contentRoot}
 
 	page, err := andrew.NewPage(server, "index.html")
 
@@ -115,49 +94,74 @@ func TestInvalidAndrewPublishTimeContentDoesNotCrashTheWebServer(t *testing.T) {
 // This test requires having several files which are in one order when sorted
 // by modtime and in another order by andrew-publish-time time, so that we can tell
 // what file attribute andrew is actually sorting on.
-// func TestArticlesAppearUnderParentDirectoryForAndrewTableOfContentsGrouped(t *testing.T) {
-// 	expected := `<a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="parentDir/displayMe.html">parentDir/displayMe.html</a>` +
-// 		`<a class="andrewtableofcontentslink" id="andrewtableofcontentslink2" href="parentDir/childDir/1-2-3.html">parentDir/childDir/1-2-3.html</a>`
+func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsWithDirectories(t *testing.T) {
+	expected := `<div class="AndrewTableOfContentsWithDirectories">
+<ul>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="otherPage.html">otherPage.html</a> - <span class="andrew-page-publish-date">0001-01-01</span></li>
+</ul>
+</div>
+`
+	contentRoot := fstest.MapFS{
+		"groupedContents.html": &fstest.MapFile{Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+		"otherPage.html":       &fstest.MapFile{},
+	}
 
-// 	contentRoot := fstest.MapFS{
-// 		"groupedContents.html": &fstest.MapFile{Data: []byte(`
-// {{ .AndrewTableOfContentsGrouped}}`)},
+	s := newTestAndrewServer(t, contentRoot)
+	resp, err := http.Get(s.BaseUrl + "/groupedContents.html")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 		"parentDir/index.html": &fstest.MapFile{Data: []byte(`
-// 	<!doctype HTML>
-// 	<head> </head>
-// 	<body>
-// 	</body>
-// 	`)},
-// 		"parentDir/displayme.html": &fstest.MapFile{Data: []byte(`
-// 	<!doctype HTML>
-// 	<head> </head>
-// 	<body>
-// 	</body>
-// 	`)},
-// 		"parentDir/childDir/1-2-3.html": &fstest.MapFile{Data: []byte(`
-// 	<!doctype HTML>
-// 	<head>
-// 	<title>1-2-3 Page</title>
-// 	</head>
-// 	`)},
-// 	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status %q", resp.Status)
+	}
+	received, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	s := newTestAndrewServer(t, contentRoot)
-// 	resp, err := http.Get(s.BaseUrl + "/groupedContents.html")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	if expected != string(received) {
 
-// 	if resp.StatusCode != http.StatusOK {
-// 		t.Fatalf("unexpected status %q", resp.Status)
-// 	}
-// 	received, err := io.ReadAll(resp.Body)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+		t.Errorf("Expected:\n" + expected + "\n Received:\n" + string(received))
 
-// 	if expected != string(received) {
-// 		t.Errorf(cmp.Diff(expected, received))
-// 	}
-// }
+	}
+}
+
+func TestArticlesFromChildDirectoriesAreShownForAndrewTableOfContentsWithDirectories(t *testing.T) {
+	expected := `<div class="AndrewTableOfContentsWithDirectories">
+<ul>
+<h5>parentDir/</h5>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="parentDir/displayme.html">displayme.html</a> - <span class="andrew-page-publish-date">0001-01-01</span></li>
+</ul>
+<ul>
+<h5><span class="AndrewParentDir">parentDir/</span>childDir/</h5>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="parentDir/childDir/1-2-3.html">1-2-3.html</a> - <span class="andrew-page-publish-date">0001-01-01</span></li>
+</ul>
+</div>
+`
+	contentRoot := fstest.MapFS{
+		"groupedContents.html":          &fstest.MapFile{Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+		"parentDir/index.html":          &fstest.MapFile{},
+		"parentDir/styles.css":          &fstest.MapFile{},
+		"parentDir/displayme.html":      &fstest.MapFile{},
+		"parentDir/childDir/1-2-3.html": &fstest.MapFile{},
+	}
+
+	s := newTestAndrewServer(t, contentRoot)
+	resp, err := http.Get(s.BaseUrl + "/groupedContents.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status %q", resp.Status)
+	}
+	received, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if expected != string(received) {
+		t.Errorf("Expected:\n" + expected + "\n Received:\n" + string(received))
+	}
+}
