@@ -43,61 +43,76 @@ func countSlashes(s string) int {
 }
 
 func renderAndrewTableOfContentsWithDirectories(siblings []Page, startingPage Page) ([]byte, error) {
-	var links bytes.Buffer
+	var html bytes.Buffer
 	var templateBuffer bytes.Buffer
+	directoriesAndContents := mapFromPagePaths(siblings)
+
+	directoriesInDepthOrder := keysOrderedByNumberOfSlashes(directoriesAndContents)
+	linkCount := 0
+
+	html.Write([]byte("<div class=\"AndrewTableOfContentsWithDirectories\">\n"))
+
+	for _, parentDir := range directoriesInDepthOrder {
+		// Skip the root directory if it only contains the starting page
+		if parentDir == "" && len(directoriesAndContents[parentDir]) == 1 && directoriesAndContents[parentDir][0] == startingPage {
+			continue
+		}
+
+		// Start the list for the directory
+		html.Write([]byte("<ul>\n"))
+
+		// Add the directory heading inside the <ul>
+		if parentDir != "" {
+			if countSlashes(parentDir) == 1 {
+				html.Write([]byte("<h5>" + parentDir + "</h5>\n"))
+			} else {
+				dirs := strings.Split(parentDir, "/")
+				html.Write([]byte("<h5><span class=\"AndrewParentDir\">" + dirs[0] + "/</span>" + strings.Join(dirs[1:], "/") + "</h5>\n"))
+			}
+		}
+
+		// Add the links to the list
+		for _, sibling := range directoriesAndContents[parentDir] {
+			// Skip the starting page
+			if sibling == startingPage {
+				continue
+			}
+			html.Write(buildAndrewTableOfContentsLink(sibling.UrlPath, sibling.Title, sibling.PublishTime.Format(time.DateOnly), linkCount))
+			linkCount++
+		}
+
+		html.Write([]byte("</ul>\n"))
+	}
+
+	html.Write([]byte("</div>\n"))
+
+	t, err := template.New(startingPage.UrlPath).Parse(startingPage.Content)
+	if err != nil {
+		panic(err)
+	}
+
+	err = t.Execute(&templateBuffer, map[string]string{"AndrewTableOfContentsWithDirectories": html.String()})
+	if err != nil {
+		return templateBuffer.Bytes(), err
+	}
+
+	return templateBuffer.Bytes(), nil
+}
+
+// mapFromPagePaths takes an array of pages and returns a map of those pages in which the keys
+// are the directories containing a specific page and the value is the path inside the directory
+// to that page.
+// So pages at page.html, parent/page1.html, parent/page2.html and parent/child/page.html
+// become {"": "page.html", "parent": ["page1.html","page2.html"], "parent/child": ["page.html"]}
+// The indexes are directory names as strings; the values are arrays of Pages.
+func mapFromPagePaths(siblings []Page) map[string][]Page {
 	directoriesAndContents := make(map[string][]Page)
 
 	for _, sibling := range siblings {
 		path, _ := path.Split(sibling.UrlPath)
 		directoriesAndContents[path] = append(directoriesAndContents[path], sibling)
 	}
-
-	// Lexicographical order if the number of slashes is the same
-	// Primary order by number of slashes
-	directoriesInDepthOrder := keysOrderedByNumberOfSlashes(directoriesAndContents)
-
-	linkCount := 0
-	dirCount := 1
-
-	links.Write([]byte("<div class=\"AndrewTableOfContentsWithDirectories\">\n"))
-	for _, parentDir := range directoriesInDepthOrder {
-
-		links.Write([]byte("<ul>\n"))
-
-		if parentDir != "" {
-			links.Write([]byte("<h5 style=\"display: inline;\">" + parentDir + "</h5>\n"))
-		}
-		for _, sibling := range directoriesAndContents[parentDir] {
-			//Do not include the page we're starting with. These and index.html pages are both to be skipped.
-			if sibling == startingPage {
-				continue
-			}
-
-			links.Write(buildAndrewTableOfContentsLink(sibling.UrlPath, sibling.Title, sibling.PublishTime.Format(time.DateOnly), linkCount))
-			linkCount = linkCount + 1
-		}
-		// If I write the </ul> for dirCount 0 here, it closes the <ul> that establishes the style
-		// of padding that we have. I don't want that.
-		if dirCount != 0 {
-			links.Write([]byte("</ul>\n"))
-		}
-		dirCount = dirCount + 1
-	}
-
-	links.Write([]byte("</div>\n"))
-
-	t, err := template.New(startingPage.UrlPath).Parse(startingPage.Content)
-
-	if err != nil {
-		panic(err)
-	}
-
-	err = t.Execute(&templateBuffer, map[string]string{"AndrewTableOfContentsWithDirectories": links.String()})
-	if err != nil {
-		return templateBuffer.Bytes(), err
-	}
-
-	return templateBuffer.Bytes(), nil
+	return directoriesAndContents
 }
 
 func keysOrderedByNumberOfSlashes(directoriesAndContents map[string][]Page) []string {

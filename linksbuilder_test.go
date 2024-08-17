@@ -94,7 +94,7 @@ func TestInvalidAndrewPublishTimeContentDoesNotCrashTheWebServer(t *testing.T) {
 // This test requires having several files which are in one order when sorted
 // by modtime and in another order by andrew-publish-time time, so that we can tell
 // what file attribute andrew is actually sorting on.
-func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsGrouped(t *testing.T) {
+func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsWithDirectories(t *testing.T) {
 	expected := `<div class="AndrewTableOfContentsWithDirectories">
 <ul>
 <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="otherPage.html">otherPage.html</a> - <span class="publish-date">0001-01-01</span></li>
@@ -127,10 +127,15 @@ func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsGrouped(t 
 	}
 }
 
-func TestArticlesFromChildDirectoriesAreNotShown(t *testing.T) {
-	expected := `<div class="AndrewTableOfContentsWithDirectories"><ul>
+func TestArticlesFromChildDirectoriesAreShownForAndrewTableOfContentsWithDirectories(t *testing.T) {
+	expected := `<div class="AndrewTableOfContentsWithDirectories">
+<ul>
 <h5>parentDir/</h5>
 <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="parentDir/displayme.html">displayme.html</a> - <span class="publish-date">0001-01-01</span></li>
+</ul>
+<ul>
+<h5><span class="AndrewParentDir">parentDir/</span>childDir/</h5>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="parentDir/childDir/1-2-3.html">1-2-3.html</a> - <span class="publish-date">0001-01-01</span></li>
 </ul>
 </div>
 `
