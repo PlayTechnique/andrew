@@ -15,7 +15,8 @@ import (
 // Andrew internally uses an os.DirFS and tests with an fstest.MapFS, so those two have some code examples herein.
 // address - an ip:port combination. The AndrewServer will bind an http server here.
 // baseUrl - the hostname that you are hosting from.
-func ListenAndServe(contentRoot fs.FS, address string, hostname string) error {
+// certInfo - certificate info type. If the members are empty, Andrew serves http.
+func ListenAndServe(contentRoot fs.FS, address string, hostname string, certInfo *CertInfo) error {
 	andrewServer := NewServer(contentRoot, address, hostname)
 
 	mux := http.NewServeMux()
@@ -27,7 +28,13 @@ func ListenAndServe(contentRoot fs.FS, address string, hostname string) error {
 		Addr:    andrewServer.Address,
 	}
 
-	err := server.ListenAndServe()
+	if certInfo != nil && certInfo.CertPath != "" && certInfo.PrivateKeyPath != "" {
+		// Use HTTPS with the provided certificate and key
+		err := server.ListenAndServeTLS(certInfo.CertPath, certInfo.PrivateKeyPath)
+		return err
+	}
 
+	// Fallback to HTTP if no certificate is provided
+	err := server.ListenAndServe()
 	return err
 }

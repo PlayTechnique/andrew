@@ -2,7 +2,6 @@ package andrew
 
 import (
 	"fmt"
-	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -22,12 +21,6 @@ type Server struct {
 	Andrewtableofcontentstemplate string // The string we're searching for inside a Page that should be replaced with a template. Mightn't belong in the Server.
 	HTTPServer                    *http.Server
 }
-
-const (
-	DefaultContentRoot = "."
-	DefaultAddress     = ":8080"
-	DefaultBaseUrl     = "http://localhost:8080"
-)
 
 // NewServer is a constructor. Its primary role is setting the default andrewtableofcontentstemplate.
 // Returns an [Server].
@@ -196,54 +189,4 @@ func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
 	})
 
 	return pages, err
-}
-
-// Main is the implementation of main. It's here to get main's logic into a testable package.
-func Main(args []string, printDest io.Writer) int {
-	help := `Usage: andrew [contentRoot] [address] [baseUrl]
-	- contentRoot: The root directory of your content. Defaults to '.' if not specified.
-	- address: The address to bind to. Defaults to 'localhost:8080' if not specified. If in doubt, you probably want 0.0.0.0:<something>
-	- base URL: The protocol://hostname for your server. Defaults to 'http://localhost:8080' if not specified. Used to generate sitemap/rss feed accurately.
-	
-	-h, --help: Display this help message.
-`
-
-	for _, arg := range args {
-		if arg == "-h" || arg == "--help" {
-			fmt.Fprint(printDest, help)
-			return 0
-		}
-	}
-
-	contentRoot, address, baseUrl := ParseArgs(args)
-
-	fmt.Fprintf(printDest, "Serving from %s, listening on %s, serving on %s", contentRoot, address, baseUrl)
-
-	err := ListenAndServe(os.DirFS(contentRoot), address, baseUrl)
-	if err != nil {
-		panic(err)
-	}
-
-	return 0
-}
-
-// ParseArgs ensures command line arguments override the default settings for a new Andrew server.
-func ParseArgs(args []string) (string, string, string) {
-	contentRoot := DefaultContentRoot
-	address := DefaultAddress
-	baseUrl := DefaultBaseUrl
-
-	if len(args) >= 1 {
-		contentRoot = args[0]
-	}
-
-	if len(args) >= 2 {
-		address = args[1]
-	}
-
-	if len(args) >= 3 {
-		baseUrl = args[2]
-	}
-
-	return contentRoot, address, baseUrl
 }

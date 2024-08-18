@@ -49,7 +49,7 @@ func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
 	received := page.Content
 
 	if expected.FindString(received) == "" {
-		t.Errorf(cmp.Diff(expected, received))
+		t.Error(cmp.Diff(expected, received))
 	}
 }
 

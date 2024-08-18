@@ -1,7 +1,13 @@
 # andrew
-Andrew is a web server like 90s web servers used to be™. It renders web pages from the file system, no databases
-involved. This is the basic design restriction that informs feature decisions. You get started by writing an "index.html"
-file and then running Andrew from that directory. 
+Andrew is a web server like web servers used to be™. 
+
+* It renders web pages from the file system, no databases involved. This is the basic design restriction that informs feature decisions. 
+* You write html files, css files and javascript, in a standard directory hierarchy. No opinions about frameworks, Andrew's just a web server.
+* You get started by writing an "index.html" file and then running Andrew from that directory. 
+* You can optionally provide an ssl certificate and key. No need for nginx or something to front Andrew.
+* Convenient support for creating lists of files from the current directory down, so you don't need to maintain that list by hand. You control
+the specific order of the pages in the list by simply providing an html meta tag in your `<head>` element
+* Sitemap automatically generated from your file system layout, as search engines like to see this for brand new websites.
 
 I wanted an http server that allows me to add a simple go template instruction into an index.html that is replaced
 with the contents of any html files that are below the current index.html in the file system hierarchy.
@@ -11,16 +17,14 @@ available to Andrew for creating links and sorting pages in the various tables o
 are explained below, but conceptually I'm trying to use standard html elements to inform Andrew about site metadata. For more 
 you may want to check the [Architecture.md](./ARCHITECTURE.md)
 
-Andrew includes a simple sitemap generator. Your new website needs some way to establish its identity with search engines,
-after all.
-
 ## To install it
 
 `go install github.com/playtechnique/andrew/cmd/andrew`
 
-## invocation
-andrew -h to see the help
+## Invocation
+andrew -h to see the help. The contents are summarised here:
 
+### Arguments
 andrew accepts up to three arguments, in this order:
 ```bash
 andrew [contentRoot] [address] [baseUrl]
@@ -33,10 +37,19 @@ address is the address you want to bind the server to. Specify as an address:por
 baseUrl is the hostname you're serving from. This is a part of sitemaps and future rss feeds. It also contains the protocol
 e.g. `https://playtechnique.io`
 
-It, unfortunately, does not terminate SSL at this point. If you include a copy of Nginx as a reverse proxy, as is standard
-in kubernetes, nginx can terminate SSL for you. I'll get to SSL, just be patient with me ❤️
+### Options
+-h | --help - show the help
+-c | --cert - this is a paired option with the option below. The path to an SSL cert bundle.
+-p |--privatekey - this is paired with the option above. The path to your ssl private key.
 
 # Feature Specifics
+## SSL Support
+Want to serve your site over https? So does everyone else! 
+Start up andrew with the arguments `--cert` and `--privatekey`. If you forget one of them, but supply the other, you'll get a helpful error reminding
+you what you need to do.
+Andrew happily serves over https. It also serves over http. 
+
+
 ## Andrew's Custom Page Elements
 ### Valid Go Template Instructions for Rendering Page Structures
 ```text
