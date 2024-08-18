@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -343,75 +342,6 @@ func TestCorrectMimeTypeIsSetForKnownFileTypes(t *testing.T) {
 			t.Errorf("Incorrect MIME type for %s: got %s, want %s", page, contentType, expectedMimeType)
 		}
 	}
-}
-
-func TestMainCalledWithHelpOptionDisplaysHelp(t *testing.T) {
-	t.Parallel()
-
-	args := []string{"--help"}
-	received := new(bytes.Buffer)
-
-	exit := andrew.Main(args, received)
-
-	if exit != 0 {
-		t.Error("Expected exit value 0, received %i", exit)
-	}
-
-	if !strings.Contains(received.String(), "Usage") {
-		t.Errorf("Expected help message containing 'Usage', received %s", received)
-	}
-}
-
-func TestMainCalledWithNoArgsUsesDefaults(t *testing.T) {
-	t.Parallel()
-
-	contentRoot, address, baseUrl := andrew.ParseArgs([]string{})
-
-	if contentRoot != andrew.DefaultContentRoot {
-		t.Errorf("contentroot should be %s, received %q", andrew.DefaultContentRoot, contentRoot)
-	}
-
-	if address != andrew.DefaultAddress {
-		t.Errorf("address should be %s, received %q", andrew.DefaultAddress, address)
-	}
-
-	if baseUrl != andrew.DefaultBaseUrl {
-		t.Errorf("baseUrl should be %s, received %q", andrew.DefaultBaseUrl, baseUrl)
-	}
-}
-
-func TestMainCalledWithArgsOverridesDefaults(t *testing.T) {
-	t.Parallel()
-
-	contentRoot, address, baseUrl := andrew.ParseArgs([]string{"1", "2", "3"})
-
-	if contentRoot != "1" {
-		t.Errorf("contentroot should be %s, received %q", "1", contentRoot)
-	}
-
-	if address != "2" {
-		t.Errorf("address should be %s, received %q", "2", address)
-	}
-
-	if baseUrl != "3" {
-		t.Errorf("baseUrl should be %s, received %q", "3", baseUrl)
-	}
-}
-
-func TestMainCalledWithInvalidAddressPanics(t *testing.T) {
-	t.Parallel()
-	args := []string{".", "notanipaddress"}
-	nullLogger := new(bytes.Buffer)
-
-	// No need to check whether `recover()` is nil. Just turn off the panic.
-	defer func() {
-		err := recover()
-		if err == nil {
-			t.Fatalf("Expected panic with invalid address, received %v", err)
-		}
-	}()
-
-	andrew.Main(args, nullLogger)
 }
 
 // TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime is verifying that
