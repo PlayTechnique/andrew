@@ -464,7 +464,7 @@ func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) 
 	received := page.Content
 
 	if expectedOrder.FindString(received) == "" {
-		t.Fatalf(cmp.Diff(expectedOrder, received))
+		t.Fatal(cmp.Diff(expectedOrder, received))
 	}
 
 }
