@@ -1,3 +1,3 @@
-- [ ] describe the feature
-- [ ] update the docs
-- [ ] add tests
+- [ ] This PR description describes the feature well
+- [ ] I have updated the docs, primarily the README but ARCHITECTURE if need be.
+- [ ] This code is covered by tests
