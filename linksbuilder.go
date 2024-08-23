@@ -133,13 +133,15 @@ func keysOrderedByNumberOfSlashes(directoriesAndContents map[string][]Page) []st
 }
 
 func renderAndrewTableOfContents(siblings []Page, startingPage Page) ([]byte, error) {
-	var links bytes.Buffer
+	var html bytes.Buffer
 
-	links.Write([]byte("<ul>\n"))
+	html.Write([]byte("<div class=\"AndrewTableOfContentsWithDirectories\">\n"))
+	html.Write([]byte("<ul>\n"))
 	for i, sibling := range siblings {
-		links.Write(buildAndrewTableOfContentsLink(sibling.UrlPath, sibling.Title, sibling.PublishTime.Format(time.DateOnly), i))
+		html.Write(buildAndrewTableOfContentsLink(sibling.UrlPath, sibling.Title, sibling.PublishTime.Format(time.DateOnly), i))
 	}
-	links.Write([]byte("</ul>\n"))
+	html.Write([]byte("</ul>\n"))
+	html.Write([]byte("</div>\n"))
 
 	templateBuffer := bytes.Buffer{}
 
@@ -150,7 +152,7 @@ func renderAndrewTableOfContents(siblings []Page, startingPage Page) ([]byte, er
 		panic(err)
 	}
 
-	err = t.Execute(&templateBuffer, map[string]string{"AndrewTableOfContents": links.String()})
+	err = t.Execute(&templateBuffer, map[string]string{"AndrewTableOfContents": html.String()})
 	if err != nil {
 		return templateBuffer.Bytes(), err
 	}
