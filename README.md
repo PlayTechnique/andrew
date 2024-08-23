@@ -58,6 +58,13 @@ Andrew happily serves over https. It also serves over http.
 ```
 These are for generating lists of web pages that exist at the same level in the file system as the web page and in child directories. 
 
+Note that each of these creates its items inside a div. Here's your cheat sheet:
+
+```text
+.AndrewTableOfContents becomes a div with class AndrewTableOfContents
+.AndrewTableOfContentsWithDirectories becomes a div with class AndrewTableOfContentsWithDirectories
+```
+
 Andrew sorts by page publish date. This publish date is tricky for a file-based web server to get consistent, so here's the rules:
 1. If you have the tag `<meta name="andrew-publish-time" content="YYYY-MM-DD"/>`, Andrew uses this date.
 2. Andrew uses the page's mtime. This means that if you edit a page that does not contain the `andrew-publish-time` element, then you will push it back to the top of the list.
@@ -108,19 +115,27 @@ fanfics/
                 what-if-elves-rode-mice-pt2.html
 ```
 
-if articles/index.html contains `{{ .AndrewTableOfContents }}` anywhere, that will be replaced with:
+if articles/index.html contains `{{ .AndrewTableOfContents }}` anywhere, that will be replaced with a div like this one:
 
 ```html
-    <a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="article-1.html">article 1</a>  - <span class=\"publish-date\">0000-00-01</span></li>
-    <a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="article-2.html">article 2</a>  - <span class=\"publish-date\">0000-00-01</span></li>
+    <div class="AndrewTableOfContents">
+    <ul>
+    <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="article-1.html">article 1</a>  - <span class=\"publish-date\">0000-00-01</span></li>
+    <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="article-2.html">article 2</a>  - <span class=\"publish-date\">0000-00-01</span></li>
+    </ul>
+    </div>
 ```
 
-if fanfics/index.html contains `{{ .AndrewTableOfContents }}`, that'll be replaced with:
+if fanfics/index.html contains `{{ .AndrewTableOfContents }}`, that'll be replaced with a div like this one:
 
 ```html
-    <a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="story-1/potter-and-draco.html">Potter and Draco</a>  - <span class=\"publish-date\">0000-00-01</span></li>
-    <a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt1.html</a>  - <span class=\"andrew-page-publish-date\">0000-00-01</span></li>
-    <a class="andrewtableofcontentslink" id="andrewtableofcontentslink2" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt2.html</a>  - <span class=\"andrew-page-publish-date\">0000-00-01</span></li>
+    <div class="AndrewTableOfContents">
+    <ul>
+    <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="story-1/potter-and-draco.html">Potter and Draco</a>  - <span class=\"publish-date\">0000-00-01</span></li>
+    <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt1.html</a>  - <span class=\"andrew-page-publish-date\">0000-00-01</span></li>
+    <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink2" href="story-2/what-if-elves-rode-mice-pt1.html">what-if-elves-rode-mice-pt2.html</a>  - <span class=\"andrew-page-publish-date\">0000-00-01</span></li>
+    </ul>
+    </div>
 ```
 
 
