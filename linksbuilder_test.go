@@ -13,6 +13,87 @@ import (
 	"github.com/playtechnique/andrew"
 )
 
+func TestAndrewTableOfContentsIsGeneratedCorrectlyInContentrootDirectory(t *testing.T) {
+	t.Parallel()
+
+	contentRoot := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(`
+<!doctype HTML>
+<head> </head>
+<body>
+{{ .AndrewTableOfContents }}
+</body>
+`)},
+		"pages/1-2-3.html": &fstest.MapFile{Data: []byte(`
+<!doctype HTML>
+<head>
+<title>1-2-3 Page</title>
+</head>
+`)},
+	}
+
+	s := newTestAndrewServer(t, contentRoot)
+
+	resp, err := http.Get(s.BaseUrl + "/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected, err := regexp.Compile(".*<a class=\"andrewtableofcontentslink\" id=\"andrewtableofcontentslink0\" href=\"pages/1-2-3.html\">1-2-3 Page</a>.*")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if expected.FindString(string(received)) == "" {
+		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expected, received))
+	}
+}
+
+func TestAndrewTableOfContentsIsGeneratedCorrectlyInAChildDirectory(t *testing.T) {
+	t.Parallel()
+
+	contentRoot := fstest.MapFS{
+		"parentDir/index.html": &fstest.MapFile{Data: []byte(`
+<!doctype HTML>
+<head> </head>
+<body>
+{{ .AndrewTableOfContents }}
+</body>
+`)},
+		"parentDir/childDir/1-2-3.html": &fstest.MapFile{Data: []byte(`
+<!doctype HTML>
+<head>
+<title>1-2-3 Page</title>
+</head>
+`)},
+	}
+
+	s := newTestAndrewServer(t, contentRoot)
+
+	resp, err := http.Get(s.BaseUrl + "/parentDir/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected, err := regexp.Compile(".*<a class=\"andrewtableofcontentslink\" id=\"andrewtableofcontentslink0\" href=\"childDir/1-2-3.html\">1-2-3 Page</a>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expected.FindString(string(received)) == "" {
+		t.Fatalf("Diff of Expected and Actual: %s", cmp.Diff(expected, received))
+	}
+}
+
 // TestArticlesOrderInAndrewTableOfContentsIsOverridable is verifying that
 // when a page contains an andrew-publish-time meta element then the list of links andrew
 // generates for the {{.AndrewTableOfContents}} are
