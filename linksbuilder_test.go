@@ -208,20 +208,17 @@ func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsWithDirect
 	}
 }
 
-func TestArticlesFromChildDirectoriesAreShownForAndrewTableOfContentsWithDirectories(t *testing.T) {
-	expected := `<div class="AndrewTableOfContentsWithDirectories">
+func TestFullHTMLReturnedByAndrewTableOfContents(t *testing.T) {
+	expected := `<div class="AndrewTableOfContents">
 <ul>
-<h5>parentDir/</h5>
-<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="parentDir/displayme.html">displayme.html</a> - <span class="andrew-page-publish-date">0001-01-01</span></li>
-</ul>
-<ul>
-<h5><span class="AndrewParentDir">parentDir/</span>childDir/</h5>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="groupedContents.html">groupedContents.html</a> - <span class="andrew-page-publish-date">0001-01-01</span></li>
 <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="parentDir/childDir/1-2-3.html">1-2-3.html</a> - <span class="andrew-page-publish-date">0001-01-01</span></li>
+<li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink2" href="parentDir/displayme.html">displayme.html</a> - <span class="andrew-page-publish-date">0001-01-01</span></li>
 </ul>
 </div>
 `
 	contentRoot := fstest.MapFS{
-		"groupedContents.html":          &fstest.MapFile{Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+		"groupedContents.html":          &fstest.MapFile{Data: []byte(`{{.AndrewTableOfContents}}`)},
 		"parentDir/index.html":          &fstest.MapFile{},
 		"parentDir/styles.css":          &fstest.MapFile{},
 		"parentDir/displayme.html":      &fstest.MapFile{},

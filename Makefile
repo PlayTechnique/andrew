@@ -2,7 +2,7 @@ build:
 	cd cmd/andrew && go build
 
 run:
-	./cmd/andrew/andrew $$HOME/Developer/playtechnique/website/website
+	go run ./cmd/andrew/main.go $$HOME/Developer/playtechnique/website/content
 
 test:
 	docker run --rm -v "$${PWD}":/usr/src/andrew -w /usr/src/andrew golang:1.23 go test

@@ -135,7 +135,7 @@ func keysOrderedByNumberOfSlashes(directoriesAndContents map[string][]Page) []st
 func renderAndrewTableOfContents(siblings []Page, startingPage Page) ([]byte, error) {
 	var html bytes.Buffer
 
-	html.Write([]byte("<div class=\"AndrewTableOfContentsWithDirectories\">\n"))
+	html.Write([]byte("<div class=\"AndrewTableOfContents\">\n"))
 	html.Write([]byte("<ul>\n"))
 	for i, sibling := range siblings {
 		html.Write(buildAndrewTableOfContentsLink(sibling.UrlPath, sibling.Title, sibling.PublishTime.Format(time.DateOnly), i))
