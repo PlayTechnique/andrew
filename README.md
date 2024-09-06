@@ -71,6 +71,7 @@ Andrew sorts by page publish date. This publish date is tricky for a file-based 
 3. Andrew uses the page's mtime. This means that if you edit a page that does not contain the `andrew-publish-time` element, then you will push it back to the top of the list. This is the worst solution if you're using andrew in a 
 container.
 
+If you want to automate generating the datestamp, this'll get you where you want to be on macOS or linux `date +"%Y-%m-%d %H:%M:%S"`
 
 ### Semantically Meaningful Andrew-specific HTML elements
 ```html    
