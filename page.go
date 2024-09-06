@@ -98,7 +98,13 @@ func getPublishTime(siteFiles fs.FS, pagePath string, pageContent []byte) (time.
 	metaPublishTime, ok := meta["andrew-publish-time"]
 
 	if ok {
-		andrewCreatedAt, err := time.Parse(time.DateOnly, metaPublishTime)
+		andrewCreatedAt, err := time.Parse(time.DateTime, metaPublishTime)
+
+		// Check if the error is of type *time.ParseError as this indicates
+		// we may have no timestamp with the date
+		if _, ok := err.(*time.ParseError); ok {
+			andrewCreatedAt, err = time.Parse(time.DateOnly, metaPublishTime)
+		}
 
 		// The errors that come out of time.Parse are all not interesting to me; we just want
 		// to use those errors to tell us if it's safe to set PublishTime to the value of the

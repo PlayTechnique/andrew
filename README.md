@@ -67,10 +67,9 @@ Note that each of these creates its items inside a div. Here's your cheat sheet:
 
 Andrew sorts by page publish date. This publish date is tricky for a file-based web server to get consistent, so here's the rules:
 1. If you have the tag `<meta name="andrew-publish-time" content="YYYY-MM-DD"/>`, Andrew uses this date.
-2. Andrew uses the page's mtime. This means that if you edit a page that does not contain the `andrew-publish-time` element, then you will push it back to the top of the list.
-
-If your page contains an `andrew-publish-time` meta element, the time must be formatted in YYYY-MM-DD format. Minutes and hours aren't supported yet.
-I don't write a lot, so I don't need granularity beyond a single day. Adding finer granularity isn't hard; feel free to ask for it or write a PR.
+2. If you have the tag `<meta name="andrew-publish-time" content="YYYY-MM-DD HH:MM:SS"/>`, Andrew refines the date with the time published. This allows you to publish several articles on the same day and get the ordering correct..
+3. Andrew uses the page's mtime. This means that if you edit a page that does not contain the `andrew-publish-time` element, then you will push it back to the top of the list. This is the worst solution if you're using andrew in a 
+container.
 
 
 ### Semantically Meaningful Andrew-specific HTML elements
