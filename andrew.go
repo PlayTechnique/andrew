@@ -16,12 +16,13 @@ import (
 // address - an ip:port combination. The AndrewServer will bind an http server here.
 // baseUrl - the hostname that you are hosting from.
 // certInfo - certificate info type. If the members are empty, Andrew serves http.
-func ListenAndServe(contentRoot fs.FS, address string, hostname string, certInfo *CertInfo) error {
-	andrewServer := NewServer(contentRoot, address, hostname)
+func ListenAndServe(contentRoot fs.FS, address string, hostname string, certInfo *CertInfo, rssInfo *RssInfo) error {
+	andrewServer := NewServer(contentRoot, address, hostname, *rssInfo)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", andrewServer.Serve)
 	mux.HandleFunc("/sitemap.xml", andrewServer.ServeSiteMap)
+	mux.HandleFunc("/rss.xml", andrewServer.ServeRssFeed)
 
 	server := http.Server{
 		Handler: mux,

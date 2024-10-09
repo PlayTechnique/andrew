@@ -8,6 +8,8 @@ Andrew is a web server like web servers used to be™.
 * Convenient support for creating lists of files from the current directory down, so you don't need to maintain that list by hand. You control
 the specific order of the pages in the list by simply providing an html meta tag in your `<head>` element
 * Sitemap automatically generated from your file system layout, as search engines like to see this for brand new websites.
+* RSS Feed automatically generated from your file system layout. Folks can subscript at `baseUrl/rss.xml`
+
 
 I wanted an http server that allows me to add a simple go template instruction into an index.html that is replaced
 with the contents of any html files that are below the current index.html in the file system hierarchy.
@@ -19,10 +21,34 @@ you may want to check the [Architecture.md](./ARCHITECTURE.md)
 
 ## To install it
 
-`go install github.com/playtechnique/andrew/cmd/andrew`
+`go install github.com/playtechnique/andrew/cmd/andrew@latest` is the simple way.
 
-## Invocation
-andrew -h to see the help. The contents are summarised here:
+There are github releases, too. You can find compiled binaries at https://github.com/PlayTechnique/andrew/releases for
+linux, windows, and macOS for both amd64 and arm64 on all systems.
+
+Here's how I install andrew through Docker:
+```
+FROM golang:1.23 AS base
+
+WORKDIR /usr/src/app
+
+ENV CGO_ENABLED=0
+RUN go install github.com/playtechnique/andrew/cmd/andrew@v0.1.5
+
+FROM scratch
+
+COPY --from=base /etc/passwd /etc/passwd
+USER 1000
+COPY --from=base /go/bin/andrew /andrew
+COPY --chown=1000:1000 content /website
+
+EXPOSE 8080
+
+ENTRYPOINT ["/andrew"]
+```
+
+## Arguments and Options
+arguments are mandatory. Options aren't.
 
 ### Arguments
 andrew accepts up to three arguments, in this order:
@@ -38,15 +64,23 @@ baseUrl is the hostname you're serving from. This is a part of sitemaps and futu
 e.g. `https://playtechnique.io`
 
 ### Options
+
 -h | --help - show the help
+
 -c | --cert - this is a paired option with the option below. The path to an SSL cert bundle.
+
 -p |--privatekey - this is paired with the option above. The path to your ssl private key.
+
+-d |--rssdescription - a short description of your RSS feed.
+
+-t |--rsstitle - the title for your RSS feed.
+
 
 # Feature Specifics
 ## SSL Support
 Want to serve your site over https? So does everyone else! 
-Start up andrew with the arguments `--cert` and `--privatekey`. If you forget one of them, but supply the other, you'll get a helpful error reminding
-you what you need to do.
+Start up andrew with the arguments `--cert` and `--privatekey`. 
+If you forget one of them, but supply the other, you'll get a helpful error reminding you what you need to do.
 Andrew happily serves over https. It also serves over http. 
 
 
@@ -189,3 +223,5 @@ Andrew parses meta tags and makes them accessible on its AndrewPage object.
 ## sitemap.xml
 When the endpoint `baseUrl/sitemap.xml` is visited, Andrew will automatically generate a sitemap containing paths to all html pages.
 
+## rss.xml
+When the endpoint `baseUrl/rss.xml` is visited, Andrew will automatically generate an RSS feed with all your articles in! We love an RSS feed <3

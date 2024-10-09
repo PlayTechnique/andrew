@@ -19,25 +19,37 @@ type Server struct {
 	BaseUrl                       string // The URL used in any links generated for this website that should contain the hostname.
 	Address                       string // IpAddress:Port combo to be served on.
 	Andrewtableofcontentstemplate string // The string we're searching for inside a Page that should be replaced with a template. Mightn't belong in the Server.
+	RssTitle                      string // The title of your RSS feed.
+	RssDescription                string // The description of your RSS feed. Go wild.
 	HTTPServer                    *http.Server
 }
 
-// NewServer is a constructor. Its primary role is setting the default andrewtableofcontentstemplate.
+// NewServer builds your web server.
+// contentRoot: an fs.FS of the files that you're serving.
+// address: The ip address to bind this web server to.
+// baseUrl: https://example.com or http://www.example.com
+// rssTitle: The title of the RSS feed that shares your site.
+// rssDescription: The description for your RSS feed. Jazz it up.
 // Returns an [Server].
-func NewServer(contentRoot fs.FS, address, baseUrl string) *Server {
+func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Server {
 	s := &Server{
 		SiteFiles:                     contentRoot,
 		Andrewtableofcontentstemplate: "AndrewTableOfContents",
 		Address:                       address,
 		BaseUrl:                       baseUrl,
+		RssTitle:                      rssInfo.Title,
+		RssDescription:                rssInfo.Description,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.Serve)
 	mux.HandleFunc("/sitemap.xml", s.ServeSiteMap)
+	mux.HandleFunc("/rss.xml", s.ServeRssFeed)
+
 	s.HTTPServer = &http.Server{
 		Handler: mux,
 		Addr:    address,
 	}
+
 	return s
 }
 

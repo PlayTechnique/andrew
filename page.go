@@ -64,7 +64,7 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 		return page, err
 	}
 
-	orderedSiblings := sortPagesByDate(siblings)
+	orderedSiblings := SortPagesByDate(siblings)
 
 	// Only execute templates for html files, not pngs or other kinds of file.
 	// This is so the template rendering engine doesn't receive a binary blob, which
@@ -217,7 +217,7 @@ func titleFromHTMLTitleElement(fileContent []byte) (string, error) {
 	return tagInfo.Data, nil
 }
 
-func sortPagesByDate(pages []Page) []Page {
+func SortPagesByDate(pages []Page) []Page {
 
 	sort.Slice(pages, func(i, j int) bool {
 		return pages[i].PublishTime.After(pages[j].PublishTime)

@@ -329,10 +329,12 @@ func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
 		t.Fatal(err)
 	}
 
+	rssInfo := andrew.RssInfo{Title: "exampleTitle", Description: "exampleDescription"}
+
 	addr := listener.Addr().String()
 	listener.Close()
 
-	server := andrew.NewServer(contentRoot, addr, "http://"+addr)
+	server := andrew.NewServer(contentRoot, addr, "http://"+addr, rssInfo)
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
