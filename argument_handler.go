@@ -15,16 +15,23 @@ type CertInfo struct {
 	PrivateKeyPath string
 }
 
+type RssInfo struct {
+	Title       string
+	Description string
+}
+
 const (
-	DefaultContentRoot = "."
-	DefaultAddress     = ":8080"
-	DefaultBaseUrl     = "http://localhost:8080"
+	DefaultContentRoot        = "."
+	DefaultAddress            = ":8080"
+	DefaultBaseUrl            = "http://localhost:8080"
+	DefaultRssFeedTitle       = "Home"
+	DefaultrssFeedDescription = "Writings"
 )
 
 // Main is the implementation of main. It's here to get main's logic into a testable package.
 func Main(args []string, printDest io.Writer) int {
 
-	certInfo, remainingArgs, err := ParseOpts(args, printDest)
+	certInfo, rssInfo, remainingArgs, err := ParseOpts(args, printDest)
 	if err != nil {
 		// If we display a -h or --help flag, we helped the user and it's time to exit.
 		if err.Error() == "helped" {
@@ -38,7 +45,7 @@ func Main(args []string, printDest io.Writer) int {
 
 	fmt.Fprintf(printDest, "Serving from %s, listening on %s, serving on %s", contentRoot, address, baseUrl)
 
-	err = ListenAndServe(os.DirFS(contentRoot), address, baseUrl, certInfo)
+	err = ListenAndServe(os.DirFS(contentRoot), address, baseUrl, certInfo, rssInfo)
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +68,7 @@ func Main(args []string, printDest io.Writer) int {
 //
 // Returns a CertInfo struct containing the SSL certificate and key paths,
 // the remaining arguments, and any error encountered.
-func ParseOpts(args []string, printDest io.Writer) (*CertInfo, []string, error) {
+func ParseOpts(args []string, printDest io.Writer) (*CertInfo, *RssInfo, []string, error) {
 	// Whitespace formatting here provided lovingly by eyeballing it.
 	help := `Usage: andrew supports both arguments and options. Arguments are positional, options are not.
 	andrew [contentRoot] [address] [baseUrl] || (-c|--cert) path/to/ssl.crt (-p|--privatekey) path/to/ssl.key (-h|--help) help message
@@ -78,10 +85,14 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, []string, error) 
 				is signed by a certificate authority, the certFile should be the concatenation of 
 				the server's certificate, any intermediates, and the CA's certificate.
 	  -p, --privatekey     Path to the private key file. Must be used with --cert.
+	  -t, --rsstitle       The title of your rss feed. Be zany.
+	  -d, --rssdescription The description of your rss feed. Go wild. Wrap it in quotes.
 	  -h, --help           Display this help message.
 `
 
 	var certPath, keyPath string
+	rssInfo := &RssInfo{Title: DefaultRssFeedTitle, Description: DefaultrssFeedDescription}
+
 	remainingArgs := []string{}
 
 	for i := 0; i < len(args); i++ {
@@ -90,32 +101,44 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, []string, error) 
 		case "-c", "--cert":
 			if i+1 < len(args) {
 				certPath = args[i+1]
-				i++ // Skip the next argument as it is the cert path
+				i++ // Skip the next item as it is the cert path
 
 				// Check if certPath is a valid file
 				if err := checkFileExists(certPath); err != nil {
-					return nil, nil, fmt.Errorf("certificate %w", err)
+					return nil, nil, nil, fmt.Errorf("certificate %w", err)
 				}
 			} else {
-				return nil, nil, errors.New("missing certificate path after " + arg)
+				return nil, nil, nil, errors.New("missing certificate path after " + arg)
+			}
+
+		case "-d", "--rssdescription":
+			if i+1 < len(args) {
+				rssInfo.Description = args[i+1]
+				i++
+			}
+
+		case "-t", "--rsstitle":
+			if i+1 < len(args) {
+				rssInfo.Title = args[i+1]
+				i++
 			}
 
 		case "-p", "--privatekey":
 			if i+1 < len(args) {
 				keyPath = args[i+1]
-				i++ // Skip the next argument as it is the key path
+				i++ // Skip the next item as it is the key path
 
 				// Check if keyPath is a valid file
 				if err := checkFileExists(keyPath); err != nil {
-					return nil, nil, fmt.Errorf("private key %w", err)
+					return nil, nil, nil, fmt.Errorf("private key %w", err)
 				}
 			} else {
-				return nil, nil, errors.New("missing private key path after " + arg)
+				return nil, nil, nil, errors.New("missing private key path after " + arg)
 			}
 
 		case "-h", "--help":
 			fmt.Fprint(printDest, help)
-			return nil, nil, errors.New("helped")
+			return nil, nil, nil, errors.New("helped")
 		default:
 			remainingArgs = append(remainingArgs, arg)
 		}
@@ -123,7 +146,7 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, []string, error) 
 
 	// Validate that if one of certPath or keyPath is set, the other must be set as well
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
-		return nil, nil, errors.New("both --cert and --privateKey must be provided together")
+		return nil, nil, nil, errors.New("both --cert and --privateKey must be provided together")
 	}
 
 	var cert *CertInfo
@@ -134,7 +157,7 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, []string, error) 
 		}
 	}
 
-	return cert, remainingArgs, nil
+	return cert, rssInfo, remainingArgs, nil
 }
 
 // ParseArgs ensures command line arguments override the default settings for a new Andrew server.
