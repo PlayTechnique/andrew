@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 )
 
 func (a Server) ServeRssFeed(w http.ResponseWriter, r *http.Request) {
@@ -56,11 +57,10 @@ func GenerateRssFeed(f fs.FS, baseUrl string, rssChannelTitle string, rssChannel
 	for _, page := range pages {
 		fmt.Fprintf(buff, "\t<item>\n"+
 			"\t\t<title>%s</title>\n"+
-			"\t\t<guid isPermaLink=\"false\">%s</guid>\n"+
 			"\t\t<link>%s</link>\n"+
 			"\t\t<pubDate>%s</pubDate>\n"+
 			"\t\t<source url=\"%s\">%s</source>\n"+
-			"\t</item>\n", page.Title, page.PublishTime, baseUrl+"/"+page.UrlPath, page.PublishTime, rssUrl, rssChannelTitle)
+			"\t</item>\n", page.Title, baseUrl+"/"+page.UrlPath, page.PublishTime.Format(time.RFC1123Z), rssUrl, rssChannelTitle)
 	}
 
 	fmt.Fprint(buff, footer)

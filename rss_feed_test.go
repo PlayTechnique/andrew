@@ -19,9 +19,8 @@ func TestGenerateRssFeedIncludesRequiredElements(t *testing.T) {
 	<generator>Andrew</generator>
 	<item>
 		<title>page.html</title>
-		<guid isPermaLink="false">0001-01-01 00:00:00 +0000 UTC</guid>
 		<link>http://localhost:8080/page.html</link>
-		<pubDate>0001-01-01 00:00:00 +0000 UTC</pubDate>
+		<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
 		<source url="http://localhost:8080/rss.xml">PlayTechnique</source>
 	</item>
 </channel>
