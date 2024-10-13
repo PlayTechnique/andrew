@@ -7,7 +7,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Server holds a reference to the paths in the fs.FS that correspond to
@@ -23,6 +28,27 @@ type Server struct {
 	RssDescription                string // The description of your RSS feed. Go wild.
 	HTTPServer                    *http.Server
 }
+
+// allRequestsByPathCounter creates a new prometheus counter for use in the Serve function, tracking all requests made, segregated by path.
+// Note there can be many requests for a single page, as css etc is served.
+var allRequestsByPathCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "andrew_server_serve_allrequestsbypath",
+	Help: "The total number of all requests received by the andrew server, segregated by path",
+}, []string{"allrequests"})
+
+// allRequestsCounter creates a new prometheus counter for use in the Serve function, tracking all requests made.
+// Note there can be many requests for a single page, as css etc is served.
+var allRequestsCounter = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "andrew_server_serve_allrequests",
+	Help: "The total number of all requests received by the andrew server",
+})
+
+// allRequestsErrorsByPathCounter creates a new prometheus counter for use in the Serve function, tracking all of the error codes generated,
+// organised by the path that generates the error.
+var allRequestsErrorsByPathCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "andrew_server_serve_allrequests_errorsbypath",
+	Help: "The total number of all requests received by the andrew server, segregated by path",
+}, []string{"path", "status"})
 
 // NewServer builds your web server.
 // contentRoot: an fs.FS of the files that you're serving.
@@ -44,6 +70,7 @@ func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Ser
 	mux.HandleFunc("/", s.Serve)
 	mux.HandleFunc("/sitemap.xml", s.ServeSiteMap)
 	mux.HandleFunc("/rss.xml", s.ServeRssFeed)
+	mux.Handle("/metrics", promhttp.Handler())
 
 	s.HTTPServer = &http.Server{
 		Handler: mux,
@@ -58,7 +85,10 @@ func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Ser
 // If a directory is requested, Serve defaults to finding the index.html page
 // within that directory. Detecting this case for
 func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
+
 	pagePath := path.Clean(r.RequestURI)
+	allRequestsByPathCounter.WithLabelValues(pagePath).Inc()
+	allRequestsCounter.Inc()
 
 	// Ensure the pagePath is relative to the root of a.SiteFiles.
 	// This involves trimming a leading slash if present.
@@ -84,6 +114,7 @@ func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
 	page, err := NewPage(a, pagePath)
 	if err != nil {
 		message, status := CheckPageErrors(err)
+		allRequestsErrorsByPathCounter.WithLabelValues(pagePath, strconv.Itoa(status)).Inc()
 		w.WriteHeader(status)
 		fmt.Fprint(w, message)
 		return
@@ -94,6 +125,10 @@ func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
 
 func (a *Server) ListenAndServe() error {
 	return a.HTTPServer.ListenAndServe()
+}
+
+func (a *Server) ListenAndServeTLS(certPath string, privateKeyPath string) error {
+	return a.HTTPServer.ListenAndServeTLS(certPath, privateKeyPath)
 }
 
 func (a *Server) Close() error {
@@ -133,6 +168,10 @@ func CheckPageErrors(err error) (string, int) {
 	// if a file doesn't exist
 	// http 404
 	if os.IsNotExist(err) {
+		promauto.NewCounter(prometheus.CounterOpts{
+			Name: "andrew_404_total",
+			Help: "The total number of 404s",
+		})
 		return "404 not found", http.StatusNotFound
 	}
 
