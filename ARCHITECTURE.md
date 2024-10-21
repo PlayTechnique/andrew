@@ -53,7 +53,7 @@ func noise(noiseType string) {
             Name: "roflcopter_noise_soisoisoi",
             Help: "The total number of soisoisoi noises the roflcopter made",
         }).Inc()
-    case "explosion":
+    case "explosion"
         promauto.NewCounter(prometheus.CounterOpts{
             Name: "roflcopter_noise_explosion",
             Help: "The total number of explosion noises the roflcopter made",

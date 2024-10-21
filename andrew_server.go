@@ -1,6 +1,7 @@
 package andrew
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -114,12 +116,13 @@ func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
 	page, err := NewPage(a, pagePath)
 	if err != nil {
 		message, status := CheckPageErrors(err)
-		allRequestsErrorsByPathCounter.WithLabelValues(pagePath, strconv.Itoa(status)).Inc()
 		w.WriteHeader(status)
 		fmt.Fprint(w, message)
+		allRequestsErrorsByPathCounter.WithLabelValues(pagePath, strconv.Itoa(status)).Inc()
 		return
 	}
 
+	allRequestsErrorsByPathCounter.WithLabelValues(pagePath, "200").Inc()
 	a.serve(w, page)
 }
 
@@ -157,7 +160,7 @@ func (a Server) serve(w http.ResponseWriter, page Page) {
 		w.Header().Set("Content-Type", "image/x-icon")
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(200)
 	fmt.Fprint(w, page.Content)
 }
 
@@ -167,11 +170,8 @@ func (a Server) serve(w http.ResponseWriter, page Page) {
 func CheckPageErrors(err error) (string, int) {
 	// if a file doesn't exist
 	// http 404
-	if os.IsNotExist(err) {
-		promauto.NewCounter(prometheus.CounterOpts{
-			Name: "andrew_404_total",
-			Help: "The total number of 404s",
-		})
+	var pathErr *fs.PathError
+	if os.IsNotExist(err) || (errors.As(err, &pathErr) && errors.Is(pathErr.Err, syscall.ENOENT)) {
 		return "404 not found", http.StatusNotFound
 	}
 
