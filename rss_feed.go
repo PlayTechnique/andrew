@@ -38,6 +38,7 @@ func GenerateRssFeed(f fs.FS, baseUrl string, rssChannelTitle string, rssChannel
 <channel>
 `
 		footer = `</channel>
+</rss>
 `
 	)
 
