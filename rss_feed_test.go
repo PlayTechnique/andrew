@@ -24,6 +24,7 @@ func TestGenerateRssFeedIncludesRequiredElements(t *testing.T) {
 		<source url="http://localhost:8080/rss.xml">PlayTechnique</source>
 	</item>
 </channel>
+</rss>
 `)
 
 	testFs := fstest.MapFS{
