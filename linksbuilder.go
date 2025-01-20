@@ -32,7 +32,7 @@ func RenderTemplates(siblings []Page, startingPage Page) ([]byte, error) {
 	}
 
 	if tableOfContentsWithDirs.FindString(startingPage.Content) != "" {
-		return renderAndrewTableOfContentsWithDirectories(siblings, startingPage)
+		return renderAndrewTableOfContentsWithDirectories(siblings, startingPage, DefaultPageSort)
 	}
 
 	return []byte(startingPage.Content), nil
@@ -42,12 +42,64 @@ func countSlashes(s string) int {
 	return strings.Count(s, "/")
 }
 
-func renderAndrewTableOfContentsWithDirectories(siblings []Page, startingPage Page) ([]byte, error) {
+// PageSortFunc is a function type that defines how to sort Pages within a directory
+type PageSortFunc func([]Page) []Page
+
+// directorySortKey represents a directory and its most recent page time
+type directorySortKey struct {
+	dir      string
+	lastTime time.Time
+}
+
+// getDirectoriesOrderedByMostRecent returns directories sorted first by their most recent page,
+// then by depth (number of slashes), then alphabetically
+func getDirectoriesOrderedByMostRecent(dirMap map[string][]Page) []string {
+	// Create slice of directorySortKey
+	dirs := make([]directorySortKey, 0, len(dirMap))
+
+	// For each directory, find the most recent page
+	for dir, pages := range dirMap {
+		var mostRecent time.Time
+		for _, page := range pages {
+			if page.PublishTime.After(mostRecent) {
+				mostRecent = page.PublishTime
+			}
+		}
+		dirs = append(dirs, directorySortKey{dir, mostRecent})
+	}
+
+	// Sort directories by most recent first, then by depth, then alphabetically
+	sort.Slice(dirs, func(i, j int) bool {
+		// If times are different, sort by most recent first
+		if !dirs[i].lastTime.Equal(dirs[j].lastTime) {
+			return dirs[i].lastTime.After(dirs[j].lastTime)
+		}
+
+		// If times are equal, sort by depth (fewer slashes first)
+		iSlashes := countSlashes(dirs[i].dir)
+		jSlashes := countSlashes(dirs[j].dir)
+		if iSlashes != jSlashes {
+			return iSlashes < jSlashes
+		}
+
+		// If depths are equal, sort alphabetically
+		return dirs[i].dir < dirs[j].dir
+	})
+
+	// Convert back to string slice
+	result := make([]string, len(dirs))
+	for i, dir := range dirs {
+		result[i] = dir.dir
+	}
+	return result
+}
+
+func renderAndrewTableOfContentsWithDirectories(siblings []Page, startingPage Page, sortFn PageSortFunc) ([]byte, error) {
 	var html bytes.Buffer
 	var templateBuffer bytes.Buffer
 	directoriesAndContents := mapFromPagePaths(siblings)
 
-	directoriesInDepthOrder := keysOrderedByNumberOfSlashes(directoriesAndContents)
+	directoriesInDepthOrder := getDirectoriesOrderedByMostRecent(directoriesAndContents)
 	linkCount := 0
 
 	html.Write([]byte("<div class=\"AndrewTableOfContentsWithDirectories\">\n"))
@@ -67,12 +119,18 @@ func renderAndrewTableOfContentsWithDirectories(siblings []Page, startingPage Pa
 				html.Write([]byte("<h5>" + parentDir + "</h5>\n"))
 			} else {
 				dirs := strings.Split(parentDir, "/")
-				html.Write([]byte("<h5><span class=\"AndrewParentDir\">" + dirs[0] + "/</span>" + strings.Join(dirs[1:], "/") + "</h5>\n"))
+				html.Write([]byte("<h5><span class=\"AndrewTableOfContentsWithDirectories\">" + dirs[0] + "/</span>" + strings.Join(dirs[1:], "/") + "</h5>\n"))
 			}
 		}
 
+		// Sort the pages in this directory using the provided sort function
+		pages := directoriesAndContents[parentDir]
+		if sortFn != nil {
+			pages = sortFn(pages)
+		}
+
 		// Add the links to the list
-		for _, sibling := range directoriesAndContents[parentDir] {
+		for _, sibling := range pages {
 			// Skip the starting page
 			if sibling == startingPage {
 				continue
@@ -115,23 +173,6 @@ func mapFromPagePaths(siblings []Page) map[string][]Page {
 	return directoriesAndContents
 }
 
-func keysOrderedByNumberOfSlashes(directoriesAndContents map[string][]Page) []string {
-	keysOrderedByLength := make([]string, 0, len(directoriesAndContents))
-	for k := range directoriesAndContents {
-		keysOrderedByLength = append(keysOrderedByLength, k)
-	}
-
-	sort.Slice(keysOrderedByLength, func(i, j int) bool {
-		slashesI := countSlashes(keysOrderedByLength[i])
-		slashesJ := countSlashes(keysOrderedByLength[j])
-		if slashesI == slashesJ {
-			return keysOrderedByLength[i] < keysOrderedByLength[j]
-		}
-		return slashesI < slashesJ
-	})
-	return keysOrderedByLength
-}
-
 func renderAndrewTableOfContents(siblings []Page, startingPage Page) ([]byte, error) {
 	var html bytes.Buffer
 
@@ -160,9 +201,29 @@ func renderAndrewTableOfContents(siblings []Page, startingPage Page) ([]byte, er
 	return templateBuffer.Bytes(), nil
 }
 
-// buildAndrewTableOfContentsLink encapsulates the format of the link
+// buildAndrewTableOfContentsLink creates an HTML list item containing a link to a page.
+// It formats the link with a CSS class, unique ID, URL path, title, and publish date.
+//
+// Parameters:
+//   - urlPath: The path to the linked page
+//   - title: The display text for the link
+//   - publishDate: The formatted date string to display
+//   - cssIdNumber: A unique number used to generate the link's ID attribute
+//
+// Returns a byte slice containing the formatted HTML list item.
 func buildAndrewTableOfContentsLink(urlPath string, title string, publishDate string, cssIdNumber int) []byte {
 	link := fmt.Sprintf("<li><a class=\"andrewtableofcontentslink\" id=\"andrewtableofcontentslink%s\" href=\"%s\">%s</a> - <span class=\"andrew-page-publish-date\">%s</span></li>\n", fmt.Sprint(cssIdNumber), urlPath, title, publishDate)
 	b := []byte(link)
 	return b
+}
+
+// DefaultPageSort provides the default sorting behavior for pages
+// (current implementation preserved as a separate function)
+func DefaultPageSort(pages []Page) []Page {
+	sorted := make([]Page, len(pages))
+	copy(sorted, pages)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].PublishTime.After(sorted[j].PublishTime)
+	})
+	return sorted
 }

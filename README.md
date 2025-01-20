@@ -186,7 +186,8 @@ articles/
                 dragons-are-fierce.html
 ```
 if index.html contains `{{ .AndrewTableOfContentsWithDirectories }}` anywhere, that will be replaced with a `<div>` called AndrewTableOfContentsWithDirectories.
-Inside the `<div>` is a decent representation of all of your content:
+Inside the `<div>` is a decent representation of all of your content. The order of directories is determined by the most recent content in each directory, so 
+the directory with the most recent content will be the first one in the list:
 
 ```html
 <div class="AndrewTableOfContentsWithDirectories">

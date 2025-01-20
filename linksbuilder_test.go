@@ -202,9 +202,7 @@ func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsWithDirect
 	}
 
 	if expected != string(received) {
-
-		t.Errorf("Expected:\n" + expected + "\n Received:\n" + string(received))
-
+		t.Errorf("Expected:\n%s\nReceived:\n%s", expected, string(received))
 	}
 }
 
@@ -240,6 +238,198 @@ func TestFullHTMLReturnedByAndrewTableOfContents(t *testing.T) {
 	}
 
 	if expected != string(received) {
-		t.Errorf("Expected:\n" + expected + "\n Received:\n" + string(received))
+		t.Errorf("Expected:\n%s\nReceived:\n%s", expected, string(received))
+	}
+}
+
+func TestAndrewTableOfContentsWithDirectoriesSortsDirectoriesByMostRecentContent(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	older := now.Add(-24 * time.Hour)
+	newest := now.Add(24 * time.Hour)
+
+	tests := []struct {
+		name     string
+		files    map[string]*fstest.MapFile
+		expected string
+	}{
+		//In these tests, I picked the directory names so that lexicographic sorting
+		//does not match the sort order by time.
+		{
+			name: "directories are sorted by most recent page",
+			files: map[string]*fstest.MapFile{
+				"index.html": {Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+				"a-dir/content.html": {
+					Data:    []byte(`<meta name="andrew-publish-time" content="` + older.Format("2006-01-02") + `">`),
+					ModTime: older,
+				},
+				"y-dir/content.html": {
+					Data:    []byte(`<meta name="andrew-publish-time" content="` + newest.Format("2006-01-02") + `">`),
+					ModTime: newest,
+				},
+			},
+			expected: "(?s).*<h5>y-dir/</h5>.*<h5>a-dir/</h5>.*",
+		},
+		{
+			name: "nested directories maintain parent-child relationship and sort by newest content",
+			files: map[string]*fstest.MapFile{
+				"index.html": {Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+				"music/rock.html": {
+					Data:    []byte(`<meta name="andrew-publish-time" content="` + older.Format("2006-01-02") + `">`),
+					ModTime: older,
+				},
+				"music/jazz/bebop.html": {
+					Data:    []byte(`<meta name="andrew-publish-time" content="` + newest.Format("2006-01-02") + `">`),
+					ModTime: newest,
+				},
+			},
+			expected: "(?s).*<h5><span class=\"AndrewTableOfContentsWithDirectories\">music/</span>jazz/</h5>.*<h5>music/</h5>.*",
+		},
+		{
+			name: "empty directories are ignored",
+			files: map[string]*fstest.MapFile{
+				"index.html": {Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+				"y-dir/content.html": {
+					Data:    []byte(`<meta name="andrew-publish-time" content="` + now.Format("2006-01-02") + `">`),
+					ModTime: now,
+				},
+				"a-dir/": {},
+			},
+			expected: "(?s).*<h5>y-dir/</h5>.*",
+		},
+		{
+			name: "directories with same newest content are sorted alphabetically",
+			files: map[string]*fstest.MapFile{
+				"index.html": {Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+				"y-dir/content.html": {
+					Data:    []byte(`<meta name="andrew-publish-time" content="` + now.Format("2006-01-02") + `">`),
+					ModTime: now,
+				},
+				"a-dir/content.html": {
+					Data:    []byte(`<meta name="andrew-publish-time" content="` + now.Format("2006-01-02") + `">`),
+					ModTime: now,
+				},
+			},
+			expected: "(?s).*<h5>a-dir/</h5>.*<h5>y-dir/</h5>.*",
+		},
+		{
+			name: "root directory content is included in sorting",
+			files: map[string]*fstest.MapFile{
+				"index.html": {Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+				"a-content.html": {
+					Data:    []byte(`<meta name="andrew-publish-time" content="` + older.Format("2006-01-02") + `">`),
+					ModTime: older,
+				},
+				"y-dir/content.html": {
+					Data:    []byte(`<meta name="andrew-publish-time" content="` + newest.Format("2006-01-02") + `">`),
+					ModTime: newest,
+				},
+			},
+			expected: "(?s).*<h5>y-dir/</h5>.*href=\"a-content.html\".*",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := newTestAndrewServer(t, fstest.MapFS(tt.files))
+			resp, err := http.Get(s.BaseUrl + "/index.html")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("unexpected status %q", resp.Status)
+			}
+
+			received, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expected, err := regexp.Compile(tt.expected)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if expected.FindString(string(received)) == "" {
+				t.Errorf("Expected pattern not found in response.\nExpected pattern: %s\nReceived: %s",
+					tt.expected, string(received))
+			}
+		})
+	}
+}
+
+func TestAndrewTableOfContentsUsesCorrectClasses(t *testing.T) {
+	t.Parallel()
+
+	files := map[string]*fstest.MapFile{
+		"index.html": {Data: []byte(`{{.AndrewTableOfContents}}`)},
+		"page.html": {
+			Data:    []byte(`<meta name="andrew-publish-time" content="2024-01-01">`),
+			ModTime: time.Now(),
+		},
+	}
+
+	s := newTestAndrewServer(t, fstest.MapFS(files))
+	resp, err := http.Get(s.BaseUrl + "/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "(?s)<div class=\"AndrewTableOfContents\">"
+	matched, err := regexp.MatchString(expected, string(received))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !matched {
+		t.Errorf("Class mismatch in div.\nExpected class: AndrewTableOfContents\nReceived output: %s", string(received))
+	}
+}
+
+func TestAndrewTableOfContentsWithDirectoriesUsesCorrectClasses(t *testing.T) {
+	t.Parallel()
+
+	files := map[string]*fstest.MapFile{
+		"index.html": {Data: []byte(`{{.AndrewTableOfContentsWithDirectories}}`)},
+		"parent/child/page.html": {
+			Data:    []byte(`<meta name="andrew-publish-time" content="2024-01-01">`),
+			ModTime: time.Now(),
+		},
+	}
+
+	s := newTestAndrewServer(t, fstest.MapFS(files))
+	resp, err := http.Get(s.BaseUrl + "/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	received, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedPatterns := map[string]string{
+		"div":  "(?s)<div class=\"AndrewTableOfContentsWithDirectories\">",
+		"span": "(?s)<h5><span class=\"AndrewTableOfContentsWithDirectories\">parent/</span>child/</h5>",
+	}
+
+	for element, pattern := range expectedPatterns {
+		matched, err := regexp.MatchString(pattern, string(received))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !matched {
+			t.Errorf("Class mismatch in %s.\nExpected class: AndrewTableOfContentsWithDirectories\nReceived output: %s",
+				element, string(received))
+		}
 	}
 }
