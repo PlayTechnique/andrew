@@ -6,6 +6,7 @@ import (
 	"io"
 	_ "net/http/pprof"
 	"os"
+	"path/filepath"
 )
 
 // CertInfo tracks SSL certificate information. Andrew can optionally serve HTTPS traffic,
@@ -42,6 +43,12 @@ func Main(args []string, printDest io.Writer) int {
 	}
 
 	contentRoot, address, baseUrl := ParseArgs(remainingArgs)
+
+	contentRoot, err = filepath.Abs(contentRoot)
+
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Fprintf(printDest, "Serving from %s, listening on %s, serving on %s", contentRoot, address, baseUrl)
 

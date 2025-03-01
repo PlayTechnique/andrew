@@ -19,9 +19,9 @@ available to Andrew for creating links and sorting pages in the various tables o
 are explained below, but conceptually I'm trying to use standard html elements to inform Andrew about site metadata. For more 
 you may want to check the [Architecture.md](./ARCHITECTURE.md)
 
-## To install it
+## To run it
 
-`go install github.com/playtechnique/andrew/cmd/andrew@latest` is the simple way.
+`go run github.com/playtechnique/andrew/cmd/andrew@latest` is the simple way. The available versions are all git tags.
 
 There are github releases, too. You can find compiled binaries at https://github.com/PlayTechnique/andrew/releases for
 linux, windows, and macOS for both amd64 and arm64 on all systems.
@@ -33,7 +33,7 @@ FROM golang:1.23 AS base
 WORKDIR /usr/src/app
 
 ENV CGO_ENABLED=0
-RUN go install github.com/playtechnique/andrew/cmd/andrew@v0.1.5
+RUN go install github.com/playtechnique/andrew/cmd/andrew@latest
 
 FROM scratch
 
