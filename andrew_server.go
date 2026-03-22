@@ -31,25 +31,29 @@ type Server struct {
 	HTTPServer                    *http.Server
 }
 
-// allRequestsByPathCounter creates a new prometheus counter for use in the Serve function, tracking all requests made, segregated by path.
-// Note there can be many requests for a single page, as css etc is served.
-var allRequestsByPathCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "andrew_server_serve_allrequestsbypath",
-	Help: "The total number of all requests received by the andrew server, segregated by path",
-}, []string{"allrequests"})
 
-// allRequestsCounter creates a new prometheus counter for use in the Serve function, tracking all requests made.
+
+// allRequestsCounter creates a new prometheus counter, intended to track the count of all requests made.
 // Note there can be many requests for a single page, as css etc is served.
 var allRequestsCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "andrew_server_serve_allrequests",
 	Help: "The total number of all requests received by the andrew server",
 })
 
-// allRequestsErrorsByPathCounter creates a new prometheus counter for use in the Serve function, tracking all of the error codes generated,
-// organised by the path that generates the error.
-var allRequestsErrorsByPathCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+// allRequestsErrorsAggregatedCounter creates a new prometheus counter, tracking all of the error codes generated,
+// aggregated into one path. The aggregation is to reduce the cardinality of the metrics in Prometheus, which can
+// get fairly gnarly as bots and scammers try downloading random URLs from the website.
+var allRequestsErrorsAggregatedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "andrew_server_serve_allrequests_errorsbypath",
-	Help: "The total number of all requests received by the andrew server, segregated by path",
+	Help: "The total number of all non-http 200 requests received by the andrew server, segregated by path",
+}, []string{"path", "status"})
+
+// allHttp200RequestsByPathCounter creates a new prometheus counter, tracking all of the http 200 paths served,
+// organised by the path that is successfully served.
+// Note there can be many requests for a single page, as css etc is served.
+var allHttp200RequestsByPathCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "andrew_server_serve_allrequests_200bypath",
+	Help: "The total number of all http 200 requests received by the andrew server, segregated by path",
 }, []string{"path", "status"})
 
 // NewServer builds your web server.
@@ -89,7 +93,6 @@ func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Ser
 func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
 
 	pagePath := path.Clean(r.RequestURI)
-	allRequestsByPathCounter.WithLabelValues(pagePath).Inc()
 	allRequestsCounter.Inc()
 
 	// Ensure the pagePath is relative to the root of a.SiteFiles.
@@ -118,11 +121,10 @@ func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
 		message, status := CheckPageErrors(err)
 		w.WriteHeader(status)
 		fmt.Fprint(w, message)
-		allRequestsErrorsByPathCounter.WithLabelValues(pagePath, strconv.Itoa(status)).Inc()
+		allRequestsErrorsAggregatedCounter.WithLabelValues("404", strconv.Itoa(status)).Inc()
 		return
 	}
 
-	allRequestsErrorsByPathCounter.WithLabelValues(pagePath, "200").Inc()
 	a.serve(w, page)
 }
 
@@ -161,6 +163,7 @@ func (a Server) serve(w http.ResponseWriter, page Page) {
 	}
 
 	w.WriteHeader(200)
+	allHttp200RequestsByPathCounter.WithLabelValues(page.UrlPath, strconv.Itoa(200)).Inc()
 	fmt.Fprint(w, page.Content)
 }
 
