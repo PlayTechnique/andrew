@@ -13,8 +13,9 @@ import (
 // contentRoot - an initialised fs.FS. Some implementation details sometimes differ amongst different fs.FS;
 // Andrew internally uses an os.DirFS and tests with an fstest.MapFS, so those two have some code examples herein.
 // address - an ip:port combination. The AndrewServer will bind an http server here.
-// baseUrl - the hostname that you are hosting from.
+// hostname - your hostname! This is injected into your sitemap and RSS feeds.
 // certInfo - certificate info type. If the members are empty, Andrew serves http.
+// rssInfo - an RSS info structure. This lets the RSS Feed show info and description.
 func ListenAndServe(contentRoot fs.FS, address string, hostname string, certInfo *CertInfo, rssInfo *RssInfo) error {
 	andrewServer := NewServer(contentRoot, address, hostname, *rssInfo)
 
