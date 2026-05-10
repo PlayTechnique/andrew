@@ -2,3 +2,4 @@
 cmd/andrew/andrew
 **/.vscode/
 main
+.ds_store

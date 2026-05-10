@@ -20,7 +20,7 @@ type Page struct {
 	// Page title
 	Title string
 	// According to https://datatracker.ietf.org/doc/html/rfc1738#section-3.1, the subsection of a
-	// URL after the procol://hostname is the UrlPath.
+	// URL after the protocol://hostname is the UrlPath.
 	UrlPath     string
 	Content     string
 	PublishTime time.Time
@@ -69,7 +69,7 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 	// Only execute templates for html files, not pngs or other kinds of file.
 	// This is so the template rendering engine doesn't receive a binary blob, which
 	// makes it panic.
-	if strings.HasSuffix(page.UrlPath, "html") {
+	if strings.HasSuffix(page.UrlPath, ".html") {
 		pageContent, err = RenderTemplates(orderedSiblings, page)
 		if err != nil {
 			return Page{}, err
@@ -94,7 +94,6 @@ func getPublishTime(siteFiles fs.FS, pagePath string, pageContent []byte) (time.
 		return publishTime, err
 	}
 
-	//TODO: extract the publishtime stuff to a single function
 	metaPublishTime, ok := meta["andrew-publish-time"]
 
 	if ok {
@@ -123,8 +122,6 @@ func SetUrlPath(page Page, urlPath string) Page {
 	return page
 }
 
-// getTagInfo recursively descends an html node tree for the requested tag,
-// searching both data and attributes to find information about the node that's requested.
 // getTagInfo recursively descends an html node tree for the requested tag,
 // searching both data and attributes to find information about the node that's requested.
 func getTagInfo(tag string, n *html.Node) TagInfo {

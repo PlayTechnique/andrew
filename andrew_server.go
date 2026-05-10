@@ -25,30 +25,28 @@ type Server struct {
 	SiteFiles                     fs.FS  // The files being served
 	BaseUrl                       string // The URL used in any links generated for this website that should contain the hostname.
 	Address                       string // IpAddress:Port combo to be served on.
-	Andrewtableofcontentstemplate string // The string we're searching for inside a Page that should be replaced with a template. Mightn't belong in the Server.
+	Andrewtableofcontentstemplate string // The string we're searching for inside a Page that should be replaced with a template.
 	RssTitle                      string // The title of your RSS feed.
 	RssDescription                string // The description of your RSS feed. Go wild.
 	HTTPServer                    *http.Server
 }
 
-
-
-// allRequestsCounter creates a new prometheus counter, intended to track the count of all requests made.
+// allRequestsCounter tracks the total number of requests made.
 // Note there can be many requests for a single page, as css etc is served.
 var allRequestsCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "andrew_server_serve_allrequests",
 	Help: "The total number of all requests received by the andrew server",
 })
 
-// allRequestsErrorsAggregatedCounter creates a new prometheus counter, tracking all of the error codes generated,
-// aggregated into one path. The aggregation is to reduce the cardinality of the metrics in Prometheus, which can
+// allRequestsErrorsAggregatedCounter tracks all of the error codes generated,
+// aggregated into one number. The aggregation is to reduce the cardinality of the metrics in Prometheus, which can
 // get fairly gnarly as bots and scammers try downloading random URLs from the website.
 var allRequestsErrorsAggregatedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "andrew_server_serve_allrequests_errorsbypath",
-	Help: "The total number of all non-http 200 requests received by the andrew server, segregated by path",
+	Help: "The total number of all non-http 200 requests received by the andrew server",
 }, []string{"path", "status"})
 
-// allHttp200RequestsByPathCounter creates a new prometheus counter, tracking all of the http 200 paths served,
+// allHttp200RequestsByPathCounter tracks all of the http 200 paths served,
 // organised by the path that is successfully served.
 // Note there can be many requests for a single page, as css etc is served.
 var allHttp200RequestsByPathCounter = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -72,6 +70,7 @@ func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Ser
 		RssTitle:                      rssInfo.Title,
 		RssDescription:                rssInfo.Description,
 	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.Serve)
 	mux.HandleFunc("/sitemap.xml", s.ServeSiteMap)
@@ -89,7 +88,11 @@ func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Ser
 // Serve handles requests for any URL. It checks whether the request is for
 // an index.html page or for anything else (another page, css, javascript etc).
 // If a directory is requested, Serve defaults to finding the index.html page
-// within that directory. Detecting this case for
+// within that directory.
+// This is a standard http serve function, and takes the normal writer and request.
+// Args:
+// w http.ResponseWriter - a ResponseWriter to write streams to.
+// r *http.Request - a Request object to interrogate for request metadata
 func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
 
 	pagePath := path.Clean(r.RequestURI)
@@ -121,7 +124,7 @@ func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
 		message, status := CheckPageErrors(err)
 		w.WriteHeader(status)
 		fmt.Fprint(w, message)
-		allRequestsErrorsAggregatedCounter.WithLabelValues("404", strconv.Itoa(status)).Inc()
+		allRequestsErrorsAggregatedCounter.WithLabelValues("Failed Page", strconv.Itoa(status)).Inc()
 		return
 	}
 

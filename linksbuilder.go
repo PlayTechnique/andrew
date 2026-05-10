@@ -11,12 +11,11 @@ import (
 	"time"
 )
 
-// RenderTemplates receives the path to a file, currently normally an index file.
-// It traverses the file system starting at the directory containing
+// RenderTemplates receives the sublings of a page, and the path to your current page.
+// It traverses the siblings of your current Page starting at the directory containing
 // that file, finds all html files that are _not_ index.html files and returns them
 // as a list of html links to those pages.
 func RenderTemplates(siblings []Page, startingPage Page) ([]byte, error) {
-
 	tableOfContents, err := regexp.Compile(`.*{{\s*\.AndrewTableOfContents\s*}}.*`)
 	if err != nil {
 		return nil, err
@@ -217,8 +216,8 @@ func buildAndrewTableOfContentsLink(urlPath string, title string, publishDate st
 	return b
 }
 
-// DefaultPageSort provides the default sorting behavior for pages
-// (current implementation preserved as a separate function)
+// DefaultPageSort provides the default sorting behavior for pages.
+// The default is to sort based upon publish time.
 func DefaultPageSort(pages []Page) []Page {
 	sorted := make([]Page, len(pages))
 	copy(sorted, pages)

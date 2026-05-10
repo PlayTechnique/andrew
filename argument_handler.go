@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 )
@@ -26,7 +25,7 @@ const (
 	DefaultAddress            = ":8080"
 	DefaultBaseUrl            = "http://localhost:8080"
 	DefaultRssFeedTitle       = "Home"
-	DefaultrssFeedDescription = "Writings"
+	DefaultRssFeedDescription = "Writings"
 )
 
 // Main is the implementation of main. It's here to get main's logic into a testable package.
@@ -73,7 +72,7 @@ func Main(args []string, printDest io.Writer) int {
 //
 // If only one of `--cert` or `--privatekey` is provided, an error is returned.
 //
-// Returns a CertInfo struct containing the SSL certificate and key paths,
+// Returns a CertInfo struct containing the SSL certificate and key paths, an RssInfo struct with info and description if provided,
 // the remaining arguments, and any error encountered.
 func ParseOpts(args []string, printDest io.Writer) (*CertInfo, *RssInfo, []string, error) {
 	// Whitespace formatting here provided lovingly by eyeballing it.
@@ -98,7 +97,7 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, *RssInfo, []strin
 `
 
 	var certPath, keyPath string
-	rssInfo := &RssInfo{Title: DefaultRssFeedTitle, Description: DefaultrssFeedDescription}
+	rssInfo := &RssInfo{Title: DefaultRssFeedTitle, Description: DefaultRssFeedDescription}
 
 	remainingArgs := []string{}
 

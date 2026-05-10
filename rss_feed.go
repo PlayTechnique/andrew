@@ -21,7 +21,7 @@ func (a Server) ServeRssFeed(w http.ResponseWriter, r *http.Request) {
 }
 
 // The RSS format's pretty simple.
-// First we add a constant header identifying the vesion of the RSS feed.
+// First we add a constant header identifying the version of the RSS feed.
 // Then we add the "channel" information. A "channel" is this RSS document.
 // Inside the "channel", we add all of the "items".
 // For Andrew, an "item" is synonymous with a page that is not an index.html page.
