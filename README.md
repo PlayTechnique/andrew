@@ -100,12 +100,15 @@ Note that each of these creates its items inside a div. Here's your cheat sheet:
 ```
 
 Andrew sorts by page publish date. This publish date is tricky for a file-based web server to get consistent, so here's the rules:
-1. If you have the tag `<meta name="andrew-publish-time" content="YYYY-MM-DD"/>`, Andrew uses this date.
-2. If you have the tag `<meta name="andrew-publish-time" content="YYYY-MM-DD HH:MM:SS"/>`, Andrew refines the date with the time published. This allows you to publish several articles on the same day and get the ordering correct..
-3. Andrew uses the page's mtime. This means that if you edit a page that does not contain the `andrew-publish-time` element, then you will push it back to the top of the list. This is the worst solution if you're using andrew in a 
-container.
+1. If you have the tag `<meta name="andrew-publish-time" content="YYYY-MM-DD"/>`, Andrew uses this date e.g. <meta name="andrew-publish-time" content="2025-03-30"/>
 
-If you want to automate generating the datestamp, this'll get you where you want to be on macOS or linux `date +"%Y-%m-%d %H:%M:%S"`
+This date format can be generated with the cli command `date +%Y-%m-%d`, so you can pretty easily use a shell alias to generate this on the fly for a new page.
+2. If you have the tag `<meta name="andrew-publish-time" content="YYYY-MM-DD HH:MM:SS"/>`, Andrew refines the date with the time published. This allows you to publish several articles on the same day and get the ordering correct e.g. `<meta name="andrew-publish-time" content="2025-03-30 12:30:00">`.
+
+This date format can be generated with the cli command `date +"%Y-%m-%d %H:%M:%S`.
+3. If the `andrew-publish-time` meta tag is not present, Andrew uses the page's mtime. This means that if you edit a page that does not contain the `andrew-publish-time` element, then you will push it back to the top of the table of contents. This is the worst solution if you're using andrew in a container and building the web pages in as part of your build pipeline. I'm doing this, so I use `andrew-publish-time` a lot.
+
+If you want to automate generating the datestamp with timestamp, this'll get you where you want to be on macOS or linux `date +"%Y-%m-%d %H:%M:%S"`
 
 ### Semantically Meaningful Andrew-specific HTML elements
 ```html    
@@ -116,11 +119,9 @@ If you want to automate generating the datestamp, this'll get you where you want
 All `meta` elements are actually parsed in the [Andrew Page](./page.go), but Andrew doesn't use a lot of them just yet.
 
 ### Custom CSS IDs and classes
-I've tried to consistently include the string `andrew` in front of any CSS classes or IDs, so they're less likely to
-clash with your whimsy for laying out your own site.
+When the table of contents is output to your page, it's a block of html that needs styling. The layout is drawn in [renderAndrewTableOfContentsWithDirectories](./page.go#L123) and [renderAndrewTableOfContents](https://github.com/PlayTechnique/andrew/blob/156b6db7de9e22e32b0f57f92599f558748706bc/linksbuilder.go#L176), but the layout and structure is detailed in an example below.
 
-The reason these classes and IDs exist is simple: it makes it easier for you to style Andrew's unstyled HTML. I don't want
-Andrew making decisions about your website's layout.
+I've tried to consistently include the string `andrew` in front of any CSS classes or IDs, so they're less likely to clash with your own class names. Again, example below of class and ID names are available for styling. I don't want Andrew making decisions about your website's layout.
 
 I include classes and IDs that get my sites looking how I want. If you need more, file a request.
 
