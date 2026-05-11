@@ -192,7 +192,7 @@ func CheckPageErrors(err error) (string, int) {
 	return "500 something went wrong", http.StatusInternalServerError
 }
 
-// GetSiblingsAndChildren accepts a path to a file and a filter function.
+// GetSiblingsAndChildren accepts a path to a file.
 // It infers the directory that the file resides within, and then recurses the Server's fs.FS
 // to return all of the files both in the same directory and further down in the directory structure.
 func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
