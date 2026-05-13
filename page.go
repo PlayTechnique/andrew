@@ -2,11 +2,15 @@ package andrew
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
+	"text/template"
 	"time"
 
 	"golang.org/x/net/html"
@@ -23,6 +27,7 @@ type Page struct {
 	// URL after the protocol://hostname is the UrlPath.
 	UrlPath     string
 	Content     string
+	RawContent  string
 	PublishTime time.Time
 }
 
@@ -56,7 +61,12 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 		return Page{}, err
 	}
 
-	page := Page{Content: string(pageContent), UrlPath: pageUrl, Title: pageTitle, PublishTime: pagePublishTime}
+	renderedPageContent, err := renderIncludeFiles(server.SiteFiles, pagePath, pageContent)
+	if err != nil {
+		return Page{}, err
+	}
+
+	page := Page{Content: string(renderedPageContent), PublishTime: pagePublishTime, RawContent: string(pageContent), Title: pageTitle, UrlPath: pageUrl}
 
 	siblings, err := server.GetSiblingsAndChildren(page.UrlPath)
 
@@ -70,7 +80,7 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 	// This is so the template rendering engine doesn't receive a binary blob, which
 	// makes it panic.
 	if strings.HasSuffix(page.UrlPath, ".html") {
-		pageContent, err = RenderTemplates(orderedSiblings, page)
+		pageContent, err = RenderTableOfContents(orderedSiblings, page)
 		if err != nil {
 			return Page{}, err
 		}
@@ -195,6 +205,112 @@ func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
 		title = path.Base(htmlFilePath)
 	}
 	return title, nil
+}
+
+func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([]byte, error) {
+	//(P<CustomName>\w+)
+	// Matches in the regular expression below:
+	// First, a reminder: <FOO> names a capturing cluster "FOO".
+	// DefaultTemplate: .AndrewIncludeFile - this is the instruction that triggers template inclusion lookup.
+	// 										 When seen, this instruction tells us that we must start looking for a file called '.AndrewInclude', in this directory.
+	// 										 string used to trigger the default template discovery behaviour.
+	//
+	includeRE, err := regexp.Compile(`{{.*(?P<AndrewIncludeFile>\.AndrewIncludeFile\w*)\s*}}.*`)
+
+	if err != nil {
+		slog.Debug("renderIncludeFile", "error", err)
+
+		return nil, err
+	}
+
+	matches := includeRE.FindStringSubmatch(string(pageContent))
+	// no .AndrewIncludeFile directive to parse.
+	if matches == nil {
+		slog.Debug("renderIncludeFile", "AndrewIncludeFileFound", "false")
+
+		return pageContent, nil
+	}
+
+	includeToRender := matches[includeRE.SubexpIndex("AndrewIncludeFile")]
+	renderFile, err := findIncludeFile(siteFiles, pagePath, includeToRender)
+
+	if err != nil {
+		slog.Debug("renderIncludeFile renderFile not found", "error", err)
+
+		return pageContent, err
+	}
+
+	slog.Debug(renderFile)
+
+	includeContent, err := fs.ReadFile(siteFiles, renderFile)
+
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := template.New(includeToRender).Parse(string(pageContent))
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Debug("renderIncludeFile", "includeToRender", includeToRender)
+
+	// The path on the file system to the include file includes a leading .,
+	// but the template execution engine uses the "." to mean "current context", not as part
+	// of its key/value structure for pairing template variables with injectable content
+	renderKey := strings.TrimPrefix(includeToRender, ".")
+	slog.Debug("renderIncludeFile", "renderKey", renderKey)
+
+	var templateBuffer bytes.Buffer
+	err = t.Execute(&templateBuffer, map[string]string{renderKey: string(includeContent)})
+
+	if err != nil {
+		return nil, err
+	}
+
+	var renderedContent []byte
+	renderedContent = templateBuffer.Bytes()
+	slog.Debug(string(renderedContent))
+
+	return renderedContent, nil
+}
+
+// findIncludeFile will walk from the directory containing includeName upwards in the tree.
+// If the include file is found in the same file as the pagePath, the directory containing the
+// include file is "."; inside an fs.FS "." is only allowed to refer to the root directory, not
+// the pwd, but fortunately path.Join takes care of that issue for us.
+// args:
+// 1. siteFiles fs.FS - a file system to search for an include file
+// 2. pagePath - the path to the starting page for the search. We simply interrogate this for the containing directory path.
+// 3. includeName - the name of the include file to look for
+func findIncludeFile(siteFiles fs.FS, pagePath string, includeName string) (string, error) {
+	pagePwd := path.Dir(pagePath)
+
+	slog.Debug("findIncludeFile", "pagePath", pagePath)
+	for {
+		candidate := path.Join(pagePwd, includeName)
+
+		_, err := fs.Stat(siteFiles, candidate)
+
+		// If the candidate is a real file, we're done.
+		if err == nil {
+			slog.Debug("findIncludeFile", "foundFile", candidate)
+
+			return candidate, nil
+		}
+
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", err
+		}
+
+		// Exit out of the walk in the root dir; nowhere else to look.
+		if pagePwd == "." {
+			return "", fs.ErrNotExist
+		}
+
+		// reset dir upwards one level
+		pagePwd = path.Dir(pagePwd)
+	}
 }
 
 // titleFromHTMLTitleElement returns the content of the "title" tag or an empty string.

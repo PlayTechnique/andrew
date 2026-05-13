@@ -3,6 +3,7 @@ package andrew
 import (
 	"maps"
 	"testing"
+	"testing/fstest"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -63,5 +64,49 @@ func TestMultipleMetaTagsPopulatedWithExpectedElements(t *testing.T) {
 
 	if !maps.Equal(expected, received) {
 		t.Fatal(cmp.Diff(expected, received))
+	}
+}
+
+func TestPageFindsParentTemplatesWhenNeeded(t *testing.T) {
+	t.Parallel()
+	expected := string([]byte(`
+<!DOCTYPE html>
+<head>
+  <title>index title</title>
+</head>
+
+<body>
+</body>
+`))
+
+	testPage := []byte(`{{ .AndrewIncludeFile }}
+<body>
+</body>
+`)
+
+	includeFile := []byte(`
+<!DOCTYPE html>
+<head>
+  <title>index title</title>
+</head>
+`)
+
+	server := Server{SiteFiles: fstest.MapFS{
+		"index.html": &fstest.MapFile{
+			Data: testPage,
+		},
+		".AndrewIncludeFile": &fstest.MapFile{
+			Data: includeFile,
+		},
+	}}
+
+	page, err := NewPage(server, "index.html")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if page.Content != string(expected) {
+		t.Fatal(cmp.Diff(expected, page.Content))
 	}
 }
