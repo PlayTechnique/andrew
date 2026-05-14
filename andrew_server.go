@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -196,7 +197,7 @@ func CheckPageErrors(err error) (string, int) {
 // It infers the directory that the file resides within, and then recurses the Server's fs.FS
 // to return all of the files both in the same directory and further down in the directory structure.
 func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
-
+	slog.Debug("GetSiblingsAndChildren", "pagePath", pagePath)
 	pages := []Page{}
 	localContentRoot := path.Dir(pagePath)
 
@@ -205,6 +206,7 @@ func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
 			return err
 		}
 
+		slog.Debug("GetSiblingsAndChildren", "currentPath", path)
 		// We don't list index files in our collection of siblings and children, because I don't
 		// want a link back to a page that contains only links.
 		if strings.Contains(path, "index.html") {
@@ -233,6 +235,7 @@ func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
 
 		// links require a URL relative to the page we're discovering siblings from, not from
 		// the root of the file system
+		// Smell: why isn't this using the NewPage constructor?
 		s_page := Page{
 			Title:       title,
 			UrlPath:     strings.TrimPrefix(path, localContentRoot+"/"),

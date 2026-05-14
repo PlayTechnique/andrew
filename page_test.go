@@ -67,7 +67,7 @@ func TestMultipleMetaTagsPopulatedWithExpectedElements(t *testing.T) {
 	}
 }
 
-func TestPageFindsParentTemplatesWhenNeeded(t *testing.T) {
+func TestPageFindsIncludeFiles(t *testing.T) {
 	t.Parallel()
 	expected := string([]byte(`
 <!DOCTYPE html>

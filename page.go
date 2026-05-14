@@ -66,7 +66,7 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 		return Page{}, err
 	}
 
-	page := Page{Content: string(renderedPageContent), PublishTime: pagePublishTime, RawContent: string(pageContent), Title: pageTitle, UrlPath: pageUrl}
+	page := Page{Content: string(renderedPageContent), PublishTime: pagePublishTime, Title: pageTitle, UrlPath: pageUrl}
 
 	siblings, err := server.GetSiblingsAndChildren(page.UrlPath)
 
@@ -80,12 +80,12 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 	// This is so the template rendering engine doesn't receive a binary blob, which
 	// makes it panic.
 	if strings.HasSuffix(page.UrlPath, ".html") {
-		pageContent, err = RenderTableOfContents(orderedSiblings, page)
+		contentWithContents, err := RenderTableOfContents(orderedSiblings, page)
 		if err != nil {
 			return Page{}, err
 		}
 
-		page.Content = string(pageContent)
+		page.Content = string(contentWithContents)
 	}
 
 	return page, nil
@@ -224,10 +224,10 @@ func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 	}
 
 	matches := includeRE.FindStringSubmatch(string(pageContent))
-	// no .AndrewIncludeFile directive to parse.
+
+	// no .AndrewIncludeFile directive to parse. Good to bail.
 	if matches == nil {
 		slog.Debug("renderIncludeFile", "AndrewIncludeFileFound", "false")
-
 		return pageContent, nil
 	}
 
