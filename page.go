@@ -222,7 +222,7 @@ func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 		return pageContent, nil
 	}
 
-	var renderedContent string
+	renderedContent := string(pageContent)
 
 	for _, m := range matches {
 		includeToRender := m[1]
@@ -242,7 +242,7 @@ func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 		}
 
 		slog.Debug("renderIncludeFiles", "includeToRender", includeToRender)
-		renderedContent = strings.Replace(string(pageContent), m[0], string(includeContent), -1)
+		renderedContent = strings.Replace(string(renderedContent), m[0], string(includeContent), -1)
 
 	}
 	// // The path on the file system to the include file includes a leading .,

@@ -154,6 +154,55 @@ func TestIncludeFileCanBeFoundWithNonDefaultIncludeName(t *testing.T) {
 	}
 }
 
+func TestMultipleIncludeFilesCanBeFoundAndInserted(t *testing.T) {
+	t.Parallel()
+	expected := string([]byte(`
+<!DOCTYPE html>
+<head>
+  <title>index title</title>
+</head>
+
+<body>
+</body>
+roflcopter
+`))
+
+	testPage := []byte(`{{ .AndrewIncludeFile.test }}
+<body>
+</body>
+{{ .AndrewIncludeFile.test2 }}
+`)
+
+	includeFile := []byte(`
+<!DOCTYPE html>
+<head>
+  <title>index title</title>
+</head>
+`)
+
+	server := Server{SiteFiles: fstest.MapFS{
+		"index.html": &fstest.MapFile{
+			Data: testPage,
+		},
+		".AndrewIncludeFile.test": &fstest.MapFile{
+			Data: includeFile,
+		},
+		".AndrewIncludeFile.test2": &fstest.MapFile{
+			Data: []byte("roflcopter"),
+		},
+	}}
+
+	page, err := NewPage(server, "index.html")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if page.Content != string(expected) {
+		t.Errorf("--Expected:\n%s\n--Received:\n%s", expected, page.Content)
+	}
+}
+
 // func TestIncludeFileCanRenderVariables(t *testing.T) {
 // 	t.Parallel()
 // 	expected := string([]byte(`
