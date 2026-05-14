@@ -27,7 +27,6 @@ type Page struct {
 	// URL after the protocol://hostname is the UrlPath.
 	UrlPath     string
 	Content     string
-	RawContent  string
 	PublishTime time.Time
 }
 
