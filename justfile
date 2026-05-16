@@ -5,3 +5,6 @@ test name="":
 	else
 		go test -v -run "{{name}}" ./...
 	fi
+
+serve:
+	go run ./cmd/andrew ../playtechnique/website/content

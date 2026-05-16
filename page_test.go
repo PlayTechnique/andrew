@@ -328,14 +328,14 @@ func TestDataTagParsing(t *testing.T) {
 			want:     map[string]string{"meta-name": "roflcopter"},
 		},
 		{
-			name:     "Key with no value returns error",
+			name:     "Key with no value returns empy",
 			dataTags: "meta-name=",
 			want:     map[string]string{"meta-name": ""},
 		},
 		{
-			name:     "Value with no key returns error",
+			name:     "Value with no key returns empty",
 			dataTags: "=roflcopter",
-			want:     map[string]string{"": "roflcopter"},
+			want:     map[string]string{},
 		},
 		{
 			name:     "Multiple pairs are parsed",
@@ -354,7 +354,7 @@ func TestDataTagParsing(t *testing.T) {
 			res := parseIncludeDataTags(tt.dataTags)
 
 			if !maps.Equal(res, tt.want) {
-				t.Errorf("match = %v, want %v", res, tt.want)
+				t.Errorf("received = %v || want %v", res, tt.want)
 			}
 
 		})
@@ -369,7 +369,7 @@ func TestIncludePatternCapturesData(t *testing.T) {
 	}{
 		{
 			name:     "include with single data attribute",
-			testPage: []byte("{{ .AndrewIncludeFile metaname='true' }}\n"),
+			testPage: []byte("{{ .AndrewIncludeFile metaname=\"true\" }}\n"),
 			includeFiles: map[string][]byte{
 				".AndrewIncludeFile": []byte("<p>Name: {{ .metaname }}</p>"),
 			},
@@ -377,27 +377,35 @@ func TestIncludePatternCapturesData(t *testing.T) {
 		},
 		{
 			name:     "include with multiple data attributes",
-			testPage: []byte("{{ .AndrewIncludeFile metaname='Bob' metadate='2006-03-04' }}\n"),
+			testPage: []byte("{{ .AndrewIncludeFile metaname='Bob' metadate=\"2006-03-04\" }}\n"),
 			includeFiles: map[string][]byte{
-				".AndrewIncludeFile": []byte("<p>{{ .metaname }} on {{ .metadate }}</p>"),
+				".AndrewIncludeFile": []byte("<p>{{ .metaname }} on '{{ .metadate }}'</p>"),
 			},
-			expected: "<p>Bob on 2006-03-04</p>\n",
+			expected: "<p>'Bob' on '2006-03-04'</p>\n",
 		},
 		{
 			name:     "last value wins when key repeated",
-			testPage: []byte("{{ .AndrewIncludeFile metaname='true' metaname='false' }}\n"),
+			testPage: []byte("{{ .AndrewIncludeFile metaname=\"true\" metaname=\"false\" }}\n"),
 			includeFiles: map[string][]byte{
 				".AndrewIncludeFile": []byte("<p>{{ .metaname }}</p>"),
 			},
 			expected: "<p>false</p>\n",
 		},
 		{
-			name:     "include file without template variables ignores data",
-			testPage: []byte("{{ .AndrewIncludeFile metaname='true' }}\n"),
+			name:     "include files provided with data tags that don't include anywhere doesn't blow up the parser",
+			testPage: []byte("{{ .AndrewIncludeFile metaname=true }}\n"),
 			includeFiles: map[string][]byte{
 				".AndrewIncludeFile": []byte("<p>Static content</p>"),
 			},
 			expected: "<p>Static content</p>\n",
+		},
+		{
+			name:     "Values can have spaces",
+			testPage: []byte("{{ .AndrewIncludeFile metaname=\"true beans\" }}\n"),
+			includeFiles: map[string][]byte{
+				".AndrewIncludeFile": []byte("<p>{{ .metaname }}</p>"),
+			},
+			expected: "<p>true beans</p>\n",
 		},
 	}
 

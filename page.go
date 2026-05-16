@@ -271,8 +271,7 @@ func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 		includeToFind := m[fileIndex]
 		// It's pretty common to put ' and " in the value of the k/v pair in the include statement.
 		// Cleaning them up is a better experience than failing the parsing.
-		dataTagsToParse := strings.ReplaceAll(m[dataIndex], "'", "")
-		dataTagsToParse = strings.ReplaceAll(dataTagsToParse, "\"", "")
+		dataTagsToParse := m[dataIndex]
 
 		// We always need to know the path to the required include file, so that we
 		// can read in the include file to insert it into the web page in place of the {{ }} statement.
@@ -323,19 +322,89 @@ func parseIncludeDataTags(data string) map[string]string {
 		return map[string]string{"": ""}
 	}
 
-	deets := strings.Fields(data)
+	keywordIdentified := false
+	quotedValue := false
+	var keyword string
+	var value string
 
-	slog.Debug("parseIncludeDataTags", "deets", fmt.Sprintf("%v", deets))
+	var tok rune
 
-	for _, val := range deets {
-		vals := strings.Split(val, "=")
+	for i := 0; i < len(data); i++ {
+		tok = rune(data[i])
 
-		if len(vals) != 2 {
-			return map[string]string{"": ""}
+		// Any whitespace before the keyword should be skipped
+		//  skip whitespace before the next key.
+		if !keywordIdentified && tok == ' ' {
+			continue
 		}
 
-		tags[vals[0]] = vals[1]
+		switch {
+		case (!keywordIdentified):
+			keyword = keyword + string(tok)
+			if i+1 < len(data) && data[i+1] == '=' {
+				// Our keyword is identified! What if it has whitespace between its end and equals,
+				// because someone wrote foo = bar?
+				keyword = strings.TrimRight(keyword, " ")
+				// Let's head up to the equals sign
+				i = i + 1
+				keywordIdentified = true
 
+				// What if someone wrote foo = bar? Then we need to go past the whitespace after the equals sign
+				for i+1 < len(data) && data[i+1] == ' ' {
+					i = i + 1
+				}
+
+				// we are either at the start of a quoted value or a bare value now.
+				// Before we go further in parsing, let's figure out if our value is quoted or not.
+				if i+1 < len(data) && data[i+1] == '"' {
+					quotedValue = true
+					i = i + 1 // now we are at the start of a quoted value
+				}
+			}
+			continue
+		case (keywordIdentified):
+			// For a value, if the next character is a space:
+			// If we are not in a qouted value, this indicates that we are done parsing, so
+			// assign the value to the keyword and proceed.
+			// we are in a quotedValue. We have to check the current character is a " and the next character
+			if quotedValue {
+				// If the next token is a quote, we're done parsing the value!
+				// We drop the quote and just put the value in the keyword
+				if tok == '"' {
+					keywordIdentified = false
+					quotedValue = false
+
+					tags[keyword] = value
+					keyword = ""
+					value = ""
+					// If the next character's a space (it should be, but let's check)
+					if i+1 < len(data) && data[i+1] == ' ' {
+						i = i + 1 // move our marching pointer to the space, so that i++ can march past it at the start of the next iteration.
+					}
+
+					continue
+				}
+
+				value = value + string(tok)
+			} else {
+				// Unquoted value: a following space ends it.
+				if i+1 < len(data) && data[i+1] == ' ' {
+					value = value + string(tok)
+					tags[keyword] = value
+					keyword = ""
+					value = ""
+					keywordIdentified = false
+					i = i + 1
+					continue
+				}
+				value = value + string(tok)
+			}
+		}
+	}
+
+	// Final flush: handles `foo=bar` with no trailing whitespace.
+	if keywordIdentified {
+		tags[keyword] = value
 	}
 
 	return tags
