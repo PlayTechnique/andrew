@@ -25,7 +25,25 @@ type includeParser struct {
 	regex         *regexp.Regexp
 }
 
-var includeRE = regexp.MustCompile(fmt.Sprintf(`{{ (?P<%s>\.AndrewIncludeFile[\w.]*) }}`, andrewIncludeFileCaptureGroup))
+var (
+	parserInstance *includeParser
+	parserOnce     sync.Once
+)
+
+// getIncludeParser returns the singleton includeParser instance.
+func getIncludeParser() *includeParser {
+	parserOnce.Do(func() {
+		parserInstance = &includeParser{
+			fileParentKey: "AndrewIncludeFile",
+			dataParentKey: "AndrewIncludeFileData",
+		}
+		parserInstance.regex = regexp.MustCompile(
+			fmt.Sprintf(`{{ (?P<%s>\.AndrewIncludeFile[\w.]*)(?P<%s>.*?)\s*?}}`,
+				parserInstance.fileParentKey,
+				parserInstance.dataParentKey))
+	})
+	return parserInstance
+}
 
 // Page tracks the content of a specific file and various pieces of metadata about it.
 // The Page makes creating links and serving content convenient, as it lets me offload
@@ -217,25 +235,48 @@ func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
 	return title, nil
 }
 
-// includeRE is a package level variable, as it exposes the regex to testing more directly.
+//	renderIncludeFiles parses the syntax {{ .AndrewIncludeFile foo=bar bam=bas }}, finds the include
+//
+// file on the file system, reads its contents and performs a template.Execute against it using the key/value pairs as a hashmap.
+// params:
+//  1. siteFiles: We need this to be able to find the include files.
+//  2. pagePath: This is the path to the currently-being-evaluated page. Finding includes begins in this page's directory and heads
+//     upwards to find the include file.
+//  3. pageContent: The page's contents; the include statement will be parsed out of these.
+//
+// retval
+// []byte: an array of bytes representing the new version of pageContent, with the includes included.
+// error: as normal.
 func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([]byte, error) {
-	// Each match in matches has 2 components:
-	// matches[][0] == the entire matched string.
-	// matches[][1] == the contents of the capture group.
-	matches := includeRE.FindAllStringSubmatch(string(pageContent), -1)
+	// The parser will parse pageContent for the include statements.
+	includeParser := getIncludeParser()
+	matches := includeParser.regex.FindAllStringSubmatch(string(pageContent), -1)
 
 	// no .AndrewIncludeFile directive to parse. Good to bail.
 	if matches == nil {
-		slog.Debug("renderIncludeFile", "AndrewIncludeFileFound", "false")
+		slog.Debug("renderIncludeFile", "AndrewIncludeDirectiveFound", "false", "pageContent", pageContent)
 		return pageContent, nil
 	}
 
-	renderedContent := string(pageContent)
+	// Each match in matches has 2 components:
+	// match[0] == the entire matched string.
+	// match[n > 0] == the contents of the Nth capture group.
+	fileIndex := includeParser.regex.SubexpIndex("AndrewIncludeFile")     // returns 1
+	dataIndex := includeParser.regex.SubexpIndex("AndrewIncludeFileData") // returns 2
+
+	var templateBuffer bytes.Buffer
+	var includeContent string
 
 	for _, m := range matches {
-		includeToRender := m[1]
+		includeToFind := m[fileIndex]
+		// It's pretty common to put ' and " in the value of the k/v pair in the include statement.
+		// Cleaning them up is a better experience than failing the parsing.
+		dataTagsToParse := strings.ReplaceAll(m[dataIndex], "'", "")
+		dataTagsToParse = strings.ReplaceAll(dataTagsToParse, "\"", "")
 
-		renderFile, err := findIncludeFile(siteFiles, pagePath, includeToRender)
+		// We always need to know the path to the required include file, so that we
+		// can read in the include file to insert it into the web page in place of the {{ }} statement.
+		includeFile, err := findIncludeFile(siteFiles, pagePath, includeToFind)
 
 		if err != nil {
 			slog.Debug("renderIncludeFile renderFile not found", "error", err)
@@ -243,34 +284,61 @@ func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 			return pageContent, err
 		}
 
-		includeContent, err := fs.ReadFile(siteFiles, renderFile)
-
+		// Read the partial (always needed)
+		partial, err := fs.ReadFile(siteFiles, includeFile)
 		if err != nil {
-			return nil, err
+			return pageContent, err
 		}
 
-		slog.Debug("renderIncludeFiles", "includeToRender", includeToRender)
-		renderedContent = strings.Replace(string(renderedContent), m[0], string(includeContent), -1)
+		// The tag format {{ .AndrewIncludeFile spaceman=david }} requires parsing out the key/value pairs.
+		// parseIncludeDataTags returns an empty map if there's no data, which is fine for template execution.
+		tags := parseIncludeDataTags(dataTagsToParse)
+
+		// Always execute template - works with empty tags (just returns raw content)
+		partialTemplate, err := template.New(includeParser.dataParentKey).Parse(string(partial))
+		if err != nil {
+			panic(err)
+		}
+
+		templateBuffer.Reset() // Clear buffer for reuse in loop
+		err = partialTemplate.Execute(&templateBuffer, tags)
+		if err != nil {
+			return templateBuffer.Bytes(), err
+		}
+
+		includeContent = templateBuffer.String()
+
+		slog.Debug("renderIncludeFiles", "includeContent", includeContent)
+		pageContent = []byte(strings.Replace(string(pageContent), m[0], string(includeContent), -1))
+	}
+
+	return pageContent, nil
+}
+
+func parseIncludeDataTags(data string) map[string]string {
+	slog.Debug("parseIncludeDataTags", "inputData", data)
+	var tags = make(map[string]string)
+
+	if data == "" {
+		return map[string]string{"": ""}
+	}
+
+	deets := strings.Fields(data)
+
+	slog.Debug("parseIncludeDataTags", "deets", fmt.Sprintf("%v", deets))
+
+	for _, val := range deets {
+		vals := strings.Split(val, "=")
+
+		if len(vals) != 2 {
+			return map[string]string{"": ""}
+		}
+
+		tags[vals[0]] = vals[1]
 
 	}
-	// // The path on the file system to the include file includes a leading .,
-	// // but the template execution engine uses the "." to mean "current context", not as part
-	// // of its key/value structure for pairing template variables with injectable content
-	// renderKey := strings.TrimPrefix(includeToRender, ".")
-	// slog.Debug("renderIncludeFile", "renderKey", renderKey)
 
-	// var templateBuffer bytes.Buffer
-	// err = t.Execute(&templateBuffer, map[string]string{renderKey: string(includeContent)})
-
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// var renderedContent []byte
-	// renderedContent = templateBuffer.Bytes()
-	// slog.Debug(string(renderedContent))
-
-	return []byte(renderedContent), nil
+	return tags
 }
 
 // findIncludeFile will upwards walk from the directory containing includeName upwards in the tree.

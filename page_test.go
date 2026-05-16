@@ -205,16 +205,6 @@ roflcopter
 
 // func TestIncludeFileCanRenderVariables(t *testing.T) {
 // 	t.Parallel()
-// 	expected := string([]byte(`
-// <!DOCTYPE html>
-// <head>
-//   <title>index title</title>
-//   <meta name="roflcopter" content="soisoi" />
-// </head>
-
-// <body>
-// </body>
-// `))
 
 // 	testPage := []byte(`{{ .AndrewIncludeFile meta-name="roflcopter" content="soisoi"}}
 // <body>
@@ -248,6 +238,9 @@ roflcopter
 // 	}
 // }
 
+// Verify that the regular expression used for finding Partials is working well.
+// Pulling these into their own test is completely worth it; the integration style
+// tests don't get this specific easily.
 func TestIncludeREPattern(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -295,19 +288,143 @@ func TestIncludeREPattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			matches := includeRE.FindStringSubmatch(tt.input)
+			parser := getIncludeParser()
+			matches := parser.regex.FindStringSubmatch(tt.input)
 
 			gotMatch := matches != nil
 			if gotMatch != tt.wantMatch {
 				t.Errorf("match = %v, want %v", gotMatch, tt.wantMatch)
 			}
 
+			// It's right below that we actually test something. This test is why
+			// includeRE and andrewIncludeFileCaptureGroup are available outside of a specific function.
 			if tt.wantMatch && matches != nil {
-				captureIdx := includeRE.SubexpIndex(andrewIncludeFileCaptureGroup)
-				gotCapture := matches[captureIdx]
-				if gotCapture != tt.wantCapture {
-					t.Errorf("captured = %q, want %q", gotCapture, tt.wantCapture)
+				captureIndex := parser.regex.SubexpIndex(parser.fileParentKey)
+				results := matches[captureIndex]
+
+				if results != tt.wantCapture {
+					t.Errorf("captured = %q, want %q", results, tt.wantCapture)
 				}
+			}
+		})
+	}
+}
+
+func TestDataTagParsing(t *testing.T) {
+	tests := []struct {
+		name        string
+		dataTags    string
+		shouldError bool
+		want        map[string]string
+	}{
+		{
+			name:     "empty string parses to nil map",
+			dataTags: "",
+			want:     map[string]string{"": ""},
+		},
+		{
+			name:     "Well-formed pair is parsed",
+			dataTags: "meta-name=roflcopter",
+			want:     map[string]string{"meta-name": "roflcopter"},
+		},
+		{
+			name:     "Key with no value returns error",
+			dataTags: "meta-name=",
+			want:     map[string]string{"meta-name": ""},
+		},
+		{
+			name:     "Value with no key returns error",
+			dataTags: "=roflcopter",
+			want:     map[string]string{"": "roflcopter"},
+		},
+		{
+			name:     "Multiple pairs are parsed",
+			dataTags: "meta-name=roflcopter meta-date=hippololamus",
+			want:     map[string]string{"meta-name": "roflcopter", "meta-date": "hippololamus"},
+		},
+		{
+			name:     "Whitespace is ignored",
+			dataTags: "    meta-name=roflcopter  meta-date=hippololamus   ",
+			want:     map[string]string{"meta-name": "roflcopter", "meta-date": "hippololamus"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := parseIncludeDataTags(tt.dataTags)
+
+			if !maps.Equal(res, tt.want) {
+				t.Errorf("match = %v, want %v", res, tt.want)
+			}
+
+		})
+	}
+}
+func TestIncludePatternCapturesData(t *testing.T) {
+	tests := []struct {
+		name         string
+		testPage     []byte
+		includeFiles map[string][]byte
+		expected     string
+	}{
+		{
+			name:     "include with single data attribute",
+			testPage: []byte("{{ .AndrewIncludeFile metaname='true' }}\n"),
+			includeFiles: map[string][]byte{
+				".AndrewIncludeFile": []byte("<p>Name: {{ .metaname }}</p>"),
+			},
+			expected: "<p>Name: true</p>\n",
+		},
+		{
+			name:     "include with multiple data attributes",
+			testPage: []byte("{{ .AndrewIncludeFile metaname='Bob' metadate='2006-03-04' }}\n"),
+			includeFiles: map[string][]byte{
+				".AndrewIncludeFile": []byte("<p>{{ .metaname }} on {{ .metadate }}</p>"),
+			},
+			expected: "<p>Bob on 2006-03-04</p>\n",
+		},
+		{
+			name:     "last value wins when key repeated",
+			testPage: []byte("{{ .AndrewIncludeFile metaname='true' metaname='false' }}\n"),
+			includeFiles: map[string][]byte{
+				".AndrewIncludeFile": []byte("<p>{{ .metaname }}</p>"),
+			},
+			expected: "<p>false</p>\n",
+		},
+		{
+			name:     "include file without template variables ignores data",
+			testPage: []byte("{{ .AndrewIncludeFile metaname='true' }}\n"),
+			includeFiles: map[string][]byte{
+				".AndrewIncludeFile": []byte("<p>Static content</p>"),
+			},
+			expected: "<p>Static content</p>\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mapFS := fstest.MapFS{
+				"index.html": &fstest.MapFile{
+					Data: tt.testPage,
+				},
+			}
+
+			for path, content := range tt.includeFiles {
+				mapFS[path] = &fstest.MapFile{
+					Data: content,
+				}
+			}
+
+			server := Server{SiteFiles: mapFS}
+
+			page, err := NewPage(server, "index.html")
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if page.Content != tt.expected {
+				t.Errorf("--Expected:\n%s\n--Received:\n%s", tt.expected, page.Content)
 			}
 		})
 	}
