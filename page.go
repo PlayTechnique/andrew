@@ -10,12 +10,20 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
+	"text/template"
 	"time"
 
 	"golang.org/x/net/html"
 )
 
-const andrewIncludeFileCaptureGroup = "AndrewIncludeFile"
+// A regular expression match returns as {"parentKey": {"key", "value"}}.
+// I want to anchor everything here and in tests on the AndrewIncludeFile parent key.
+type includeParser struct {
+	fileParentKey string
+	dataParentKey string
+	regex         *regexp.Regexp
+}
 
 var includeRE = regexp.MustCompile(fmt.Sprintf(`{{ (?P<%s>\.AndrewIncludeFile[\w.]*) }}`, andrewIncludeFileCaptureGroup))
 
