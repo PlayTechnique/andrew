@@ -31,7 +31,7 @@ const (
 )
 
 func init() {
-	level := slog.Level(9999) // above everything
+	level := slog.LevelInfo
 	if os.Getenv("DEBUG") == "true" {
 		level = slog.LevelDebug
 	}

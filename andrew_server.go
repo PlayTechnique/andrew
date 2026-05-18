@@ -226,7 +226,10 @@ func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
 		// Render partials before extracting metadata, so meta tags inside partials are found
 		renderedContent, err := renderPartialFiles(a.SiteFiles, path, pageContent)
 		if err != nil {
-			return err
+			// Skip this page in sibling discovery if it has broken partials
+			// The page itself will still 404 when directly requested
+			slog.Info("skipping page with broken partial reference", "path", path, "error", err)
+			return nil
 		}
 
 		title, err := getTitle(path, renderedContent)
