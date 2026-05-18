@@ -21,7 +21,7 @@ func (a Server) ServeRssFeed(w http.ResponseWriter, r *http.Request) {
 }
 
 // The RSS format's pretty simple.
-// First we add a constant header identifying the vesion of the RSS feed.
+// First we add a constant header identifying the version of the RSS feed.
 // Then we add the "channel" information. A "channel" is this RSS document.
 // Inside the "channel", we add all of the "items".
 // For Andrew, an "item" is synonymous with a page that is not an index.html page.
@@ -94,12 +94,18 @@ func getPages(siteFiles fs.FS) ([]Page, error) {
 			return err
 		}
 
-		title, err := getTitle(path, pageContent)
+		// Render includes before extracting metadata, so meta tags inside partials are found
+		renderedContent, err := renderIncludeFiles(siteFiles, path, pageContent)
 		if err != nil {
 			return err
 		}
 
-		publishTime, err := getPublishTime(siteFiles, path, pageContent)
+		title, err := getTitle(path, renderedContent)
+		if err != nil {
+			return err
+		}
+
+		publishTime, err := getPublishTime(siteFiles, path, renderedContent)
 		if err != nil {
 			return err
 		}
@@ -109,7 +115,7 @@ func getPages(siteFiles fs.FS) ([]Page, error) {
 		s_page := Page{
 			Title:       title,
 			UrlPath:     strings.TrimPrefix(path, localContentRoot+"/"),
-			Content:     string(pageContent),
+			Content:     string(renderedContent),
 			PublishTime: publishTime,
 		}
 

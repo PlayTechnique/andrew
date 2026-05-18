@@ -121,7 +121,7 @@ func TestArticlesOrderInAndrewTableOfContentsIsOverridable(t *testing.T) {
 
 	server := andrew.Server{SiteFiles: contentRoot}
 
-	page, err := andrew.NewPage(server, "index.html")
+	page, err := server.NewPage("index.html")
 
 	if err != nil {
 		t.Fatal(err)

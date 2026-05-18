@@ -11,27 +11,31 @@ import (
 	"time"
 )
 
-// RenderTemplates receives the path to a file, currently normally an index file.
-// It traverses the file system starting at the directory containing
-// that file, finds all html files that are _not_ index.html files and returns them
-// as a list of html links to those pages.
-func RenderTemplates(siblings []Page, startingPage Page) ([]byte, error) {
+// RenderTableOfContents dynamically looks through the siblings of the current page.
+// The goal is to generate the right set of links for the table of contents, by checking
+// building a list of the files, then retrieving metadata like the file's name, or creation date.
+// The "siblings" is just an array of pages, we really don't care if they're in the pwd or if the
+// paths contain child directories too.
+// Returns:
+// 1. Array of Bytes - this is actually the html document, the "table of contents".
+// 2. error - one of several items here could error; regular expressions can fail, a template could misrender.
+func RenderTableOfContents(siblings []Page, startingPage Page) ([]byte, error) {
 
-	tableOfContents, err := regexp.Compile(`.*{{\s*\.AndrewTableOfContents\s*}}.*`)
+	tableOfContentsFinder, err := regexp.Compile(`.*{{\s*\.AndrewTableOfContents\s*}}.*`)
 	if err != nil {
 		return nil, err
 	}
 
-	if tableOfContents.FindString(startingPage.Content) != "" {
+	if tableOfContentsFinder.FindString(startingPage.Content) != "" {
 		return renderAndrewTableOfContents(siblings, startingPage)
 	}
 
-	tableOfContentsWithDirs, err := regexp.Compile(`.*{{\s*\.AndrewTableOfContentsWithDirectories\s*}}.*`)
+	tableOfContentsWithDirsFinder, err := regexp.Compile(`.*{{\s*\.AndrewTableOfContentsWithDirectories\s*}}.*`)
 	if err != nil {
 		return nil, err
 	}
 
-	if tableOfContentsWithDirs.FindString(startingPage.Content) != "" {
+	if tableOfContentsWithDirsFinder.FindString(startingPage.Content) != "" {
 		return renderAndrewTableOfContentsWithDirectories(siblings, startingPage, DefaultPageSort)
 	}
 
@@ -217,8 +221,8 @@ func buildAndrewTableOfContentsLink(urlPath string, title string, publishDate st
 	return b
 }
 
-// DefaultPageSort provides the default sorting behavior for pages
-// (current implementation preserved as a separate function)
+// DefaultPageSort provides the default sorting behavior for pages.
+// The default is to sort based upon publish time.
 func DefaultPageSort(pages []Page) []Page {
 	sorted := make([]Page, len(pages))
 	copy(sorted, pages)
