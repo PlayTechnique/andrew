@@ -100,7 +100,7 @@ func TestPageFindsIncludeFiles(t *testing.T) {
 		},
 	}}
 
-	page, err := NewPage(server, "index.html")
+	page, err := server.NewPage("index.html")
 
 	if err != nil {
 		t.Error(err)
@@ -143,7 +143,7 @@ func TestIncludeFileCanBeFoundWithNonDefaultIncludeName(t *testing.T) {
 		},
 	}}
 
-	page, err := NewPage(server, "index.html")
+	page, err := server.NewPage("index.html")
 
 	if err != nil {
 		t.Fatal(err)
@@ -192,7 +192,7 @@ roflcopter
 		},
 	}}
 
-	page, err := NewPage(server, "index.html")
+	page, err := server.NewPage("index.html")
 
 	if err != nil {
 		t.Fatal(err)
@@ -227,7 +227,7 @@ roflcopter
 // 		},
 // 	}}
 
-// 	page, err := NewPage(server, "index.html")
+// 	page, err := server.NewPage("index.html")
 
 // 	if err != nil {
 // 		t.Fatal(err)
@@ -425,7 +425,7 @@ func TestIncludePatternCapturesData(t *testing.T) {
 
 			server := Server{SiteFiles: mapFS}
 
-			page, err := NewPage(server, "index.html")
+			page, err := server.NewPage("index.html")
 
 			if err != nil {
 				t.Fatal(err)

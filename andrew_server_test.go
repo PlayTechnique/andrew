@@ -304,7 +304,7 @@ func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) 
 
 	server := andrew.Server{SiteFiles: os.DirFS(contentRoot)}
 
-	page, err := andrew.NewPage(server, "index.html")
+	page, err := server.NewPage("index.html")
 
 	if err != nil {
 		t.Fatal(err)
@@ -362,4 +362,55 @@ func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
 	<-ready
 
 	return server
+}
+
+// TestGetSiblingsAndChildrenHonorsPublishTimeFromIncludedPartial verifies
+// that a sibling's <meta name="andrew-publish-time"> is respected even when
+// it lives inside an .AndrewIncludeFile partial.
+// The bug: GetSiblingsAndChildren reads meta tags from the raw page bytes before includes are rendered, so a
+// meta tag inside a partial is invisible and PublishTime silently falls back
+// to mtime.
+func TestGetSiblingsAndChildrenHonorsPublishTimeFromIncludedPartial(t *testing.T) {
+	t.Parallel()
+
+	contentRoot := t.TempDir()
+
+	partial := []byte(`<meta name="andrew-publish-time" content="{{ .pubtime }}" />`)
+	if err := os.WriteFile(contentRoot+"/.AndrewIncludeFile", partial, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(contentRoot+"/index.html", []byte(""), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	page := []byte(`{{ .AndrewIncludeFile pubtime="2024-01-28" }}`)
+	if err := os.WriteFile(contentRoot+"/post.html", page, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set mtime far away from the meta-tag date so an mtime fallback is obvious.
+	mtime := time.Date(2030, 6, 1, 0, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(contentRoot+"/post.html", mtime, mtime); err != nil {
+		t.Fatal(err)
+	}
+
+	server := andrew.Server{SiteFiles: os.DirFS(contentRoot)}
+
+	siblings, err := server.GetSiblingsAndChildren("index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var post andrew.Page
+	for _, s := range siblings {
+		if s.UrlPath == "post.html" {
+			post = s
+			break
+		}
+	}
+
+	want := time.Date(2024, 1, 28, 0, 0, 0, 0, time.UTC)
+	if !post.PublishTime.Equal(want) {
+		t.Fatalf("PublishTime = %v, want %v (meta tag is inside an included partial; GetSiblingsAndChildren is falling back to mtime)", post.PublishTime, want)
+	}
 }

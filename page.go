@@ -65,12 +65,12 @@ type TagInfo struct {
 }
 
 // NewPage creates a Page from a URL by reading the corresponding file from the
-// AndrewServer's SiteFiles.
+// Server's SiteFiles.
 // NewPage does this by reading the page content from disk, then parsing out various
 // metadata that are convenient to have quick access to, such as the page title or the
 // publish time.
-func NewPage(server Server, pageUrl string) (Page, error) {
-	pageContent, err := fs.ReadFile(server.SiteFiles, pageUrl)
+func (s Server) NewPage(pageUrl string) (Page, error) {
+	pageContent, err := fs.ReadFile(s.SiteFiles, pageUrl)
 	if err != nil {
 		return Page{}, err
 	}
@@ -83,20 +83,20 @@ func NewPage(server Server, pageUrl string) (Page, error) {
 		return Page{}, err
 	}
 
-	pagePublishTime, err := getPublishTime(server.SiteFiles, pagePath, pageContent)
+	pagePublishTime, err := getPublishTime(s.SiteFiles, pagePath, pageContent)
 
 	if err != nil {
 		return Page{}, err
 	}
 
-	renderedPageContent, err := renderIncludeFiles(server.SiteFiles, pagePath, pageContent)
+	renderedPageContent, err := renderIncludeFiles(s.SiteFiles, pagePath, pageContent)
 	if err != nil {
 		return Page{}, err
 	}
 
 	page := Page{Content: string(renderedPageContent), PublishTime: pagePublishTime, Title: pageTitle, UrlPath: pageUrl}
 
-	siblings, err := server.GetSiblingsAndChildren(page.UrlPath)
+	siblings, err := s.GetSiblingsAndChildren(page.UrlPath)
 
 	if err != nil {
 		return page, err

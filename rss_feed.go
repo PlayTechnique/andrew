@@ -94,12 +94,18 @@ func getPages(siteFiles fs.FS) ([]Page, error) {
 			return err
 		}
 
-		title, err := getTitle(path, pageContent)
+		// Render includes before extracting metadata, so meta tags inside partials are found
+		renderedContent, err := renderIncludeFiles(siteFiles, path, pageContent)
 		if err != nil {
 			return err
 		}
 
-		publishTime, err := getPublishTime(siteFiles, path, pageContent)
+		title, err := getTitle(path, renderedContent)
+		if err != nil {
+			return err
+		}
+
+		publishTime, err := getPublishTime(siteFiles, path, renderedContent)
 		if err != nil {
 			return err
 		}
@@ -109,7 +115,7 @@ func getPages(siteFiles fs.FS) ([]Page, error) {
 		s_page := Page{
 			Title:       title,
 			UrlPath:     strings.TrimPrefix(path, localContentRoot+"/"),
-			Content:     string(pageContent),
+			Content:     string(renderedContent),
 			PublishTime: publishTime,
 		}
 

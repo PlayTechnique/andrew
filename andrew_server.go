@@ -120,7 +120,7 @@ func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
 		pagePath = "index.html"
 	}
 
-	page, err := NewPage(a, pagePath)
+	page, err := a.NewPage(pagePath)
 	if err != nil {
 		message, status := CheckPageErrors(err)
 		w.WriteHeader(status)
@@ -223,23 +223,28 @@ func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
 			return err
 		}
 
-		title, err := getTitle(path, pageContent)
+		// Render includes before extracting metadata, so meta tags inside partials are found
+		renderedContent, err := renderIncludeFiles(a.SiteFiles, path, pageContent)
 		if err != nil {
 			return err
 		}
 
-		publishTime, err := getPublishTime(a.SiteFiles, path, pageContent)
+		title, err := getTitle(path, renderedContent)
+		if err != nil {
+			return err
+		}
+
+		publishTime, err := getPublishTime(a.SiteFiles, path, renderedContent)
 		if err != nil {
 			return err
 		}
 
 		// links require a URL relative to the page we're discovering siblings from, not from
 		// the root of the file system
-		// Smell: why isn't this using the NewPage constructor?
 		s_page := Page{
 			Title:       title,
 			UrlPath:     strings.TrimPrefix(path, localContentRoot+"/"),
-			Content:     string(pageContent),
+			Content:     string(renderedContent),
 			PublishTime: publishTime,
 		}
 
