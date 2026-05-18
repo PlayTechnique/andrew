@@ -18,7 +18,7 @@ import (
 )
 
 // A regular expression match returns as {"parentKey": {"key", "value"}}.
-// I want to anchor everything here and in tests on the AndrewIncludeFile parent key.
+// I want to anchor everything here and in tests on the AndrewPartialFile parent key.
 type includeParser struct {
 	fileParentKey string
 	dataParentKey string
@@ -34,11 +34,11 @@ var (
 func getIncludeParser() *includeParser {
 	parserOnce.Do(func() {
 		parserInstance = &includeParser{
-			fileParentKey: "AndrewIncludeFile",
-			dataParentKey: "AndrewIncludeFileData",
+			fileParentKey: "AndrewPartialFile",
+			dataParentKey: "AndrewPartialFileData",
 		}
 		parserInstance.regex = regexp.MustCompile(
-			fmt.Sprintf(`{{ (?P<%s>\.AndrewIncludeFile[\w.]*)(?P<%s>.*?)\s*?}}`,
+			fmt.Sprintf(`{{ (?P<%s>\.AndrewPartialFile[\w.]*)(?P<%s>.*?)\s*?}}`,
 				parserInstance.fileParentKey,
 				parserInstance.dataParentKey))
 	})
@@ -235,7 +235,7 @@ func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
 	return title, nil
 }
 
-//	renderIncludeFiles parses the syntax {{ .AndrewIncludeFile foo=bar bam=bas }}, finds the include
+//	renderIncludeFiles parses the syntax {{ .AndrewPartialFile foo=bar bam=bas }}, finds the include
 //
 // file on the file system, reads its contents and performs a template.Execute against it using the key/value pairs as a hashmap.
 // params:
@@ -252,7 +252,7 @@ func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 	includeParser := getIncludeParser()
 	matches := includeParser.regex.FindAllStringSubmatch(string(pageContent), -1)
 
-	// no .AndrewIncludeFile directive to parse. Good to bail.
+	// no .AndrewPartialFile directive to parse. Good to bail.
 	if matches == nil {
 		slog.Debug("renderIncludeFile", "AndrewIncludeDirectiveFound", "false", "pageContent", pageContent)
 		return pageContent, nil
@@ -261,8 +261,8 @@ func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 	// Each match in matches has 2 components:
 	// match[0] == the entire matched string.
 	// match[n > 0] == the contents of the Nth capture group.
-	fileIndex := includeParser.regex.SubexpIndex("AndrewIncludeFile")     // returns 1
-	dataIndex := includeParser.regex.SubexpIndex("AndrewIncludeFileData") // returns 2
+	fileIndex := includeParser.regex.SubexpIndex("AndrewPartialFile")     // returns 1
+	dataIndex := includeParser.regex.SubexpIndex("AndrewPartialFileData") // returns 2
 
 	var templateBuffer bytes.Buffer
 	var includeContent string
@@ -289,7 +289,7 @@ func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 			return pageContent, err
 		}
 
-		// The tag format {{ .AndrewIncludeFile spaceman=david }} requires parsing out the key/value pairs.
+		// The tag format {{ .AndrewPartialFile spaceman=david }} requires parsing out the key/value pairs.
 		// parseIncludeDataTags returns an empty map if there's no data, which is fine for template execution.
 		tags := parseIncludeDataTags(dataTagsToParse)
 

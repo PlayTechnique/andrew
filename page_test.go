@@ -79,7 +79,7 @@ func TestPageFindsIncludeFiles(t *testing.T) {
 </body>
 `))
 
-	testPage := []byte(`{{ .AndrewIncludeFile }}
+	testPage := []byte(`{{ .AndrewPartialFile }}
 <body>
 </body>
 `)
@@ -95,7 +95,7 @@ func TestPageFindsIncludeFiles(t *testing.T) {
 		"index.html": &fstest.MapFile{
 			Data: testPage,
 		},
-		".AndrewIncludeFile": &fstest.MapFile{
+		".AndrewPartialFile": &fstest.MapFile{
 			Data: includeFile,
 		},
 	}}
@@ -122,7 +122,7 @@ func TestIncludeFileCanBeFoundWithNonDefaultIncludeName(t *testing.T) {
 </body>
 `))
 
-	testPage := []byte(`{{ .AndrewIncludeFile.test }}
+	testPage := []byte(`{{ .AndrewPartialFile.test }}
 <body>
 </body>
 `)
@@ -138,7 +138,7 @@ func TestIncludeFileCanBeFoundWithNonDefaultIncludeName(t *testing.T) {
 		"index.html": &fstest.MapFile{
 			Data: testPage,
 		},
-		".AndrewIncludeFile.test": &fstest.MapFile{
+		".AndrewPartialFile.test": &fstest.MapFile{
 			Data: includeFile,
 		},
 	}}
@@ -167,10 +167,10 @@ func TestMultipleIncludeFilesCanBeFoundAndInserted(t *testing.T) {
 roflcopter
 `))
 
-	testPage := []byte(`{{ .AndrewIncludeFile.test }}
+	testPage := []byte(`{{ .AndrewPartialFile.test }}
 <body>
 </body>
-{{ .AndrewIncludeFile.test2 }}
+{{ .AndrewPartialFile.test2 }}
 `)
 
 	includeFile := []byte(`
@@ -184,10 +184,10 @@ roflcopter
 		"index.html": &fstest.MapFile{
 			Data: testPage,
 		},
-		".AndrewIncludeFile.test": &fstest.MapFile{
+		".AndrewPartialFile.test": &fstest.MapFile{
 			Data: includeFile,
 		},
-		".AndrewIncludeFile.test2": &fstest.MapFile{
+		".AndrewPartialFile.test2": &fstest.MapFile{
 			Data: []byte("roflcopter"),
 		},
 	}}
@@ -206,7 +206,7 @@ roflcopter
 // func TestIncludeFileCanRenderVariables(t *testing.T) {
 // 	t.Parallel()
 
-// 	testPage := []byte(`{{ .AndrewIncludeFile meta-name="roflcopter" content="soisoi"}}
+// 	testPage := []byte(`{{ .AndrewPartialFile meta-name="roflcopter" content="soisoi"}}
 // <body>
 // </body>
 // `)
@@ -222,7 +222,7 @@ roflcopter
 // 		"index.html": &fstest.MapFile{
 // 			Data: testPage,
 // 		},
-// 		".AndrewIncludeFile": &fstest.MapFile{
+// 		".AndrewPartialFile": &fstest.MapFile{
 // 			Data: includeFile,
 // 		},
 // 	}}
@@ -250,31 +250,31 @@ func TestIncludeREPattern(t *testing.T) {
 	}{
 		{
 			name:        "matches basic include",
-			input:       "{{ .AndrewIncludeFile }}",
+			input:       "{{ .AndrewPartialFile }}",
 			wantMatch:   true,
-			wantCapture: ".AndrewIncludeFile",
+			wantCapture: ".AndrewPartialFile",
 		},
 		{
 			name:        "matches include with single extension",
-			input:       "{{ .AndrewIncludeFile.test }}",
+			input:       "{{ .AndrewPartialFile.test }}",
 			wantMatch:   true,
-			wantCapture: ".AndrewIncludeFile.test",
+			wantCapture: ".AndrewPartialFile.test",
 		},
 		{
 			name:        "matches include with multiple extensions",
-			input:       "{{ .AndrewIncludeFile.test.foo }}",
+			input:       "{{ .AndrewPartialFile.test.foo }}",
 			wantMatch:   true,
-			wantCapture: ".AndrewIncludeFile.test.foo",
+			wantCapture: ".AndrewPartialFile.test.foo",
 		},
 		{
 			name:        "does not match without spaces",
-			input:       "{{.AndrewIncludeFile}}",
+			input:       "{{.AndrewPartialFile}}",
 			wantMatch:   false,
 			wantCapture: "",
 		},
 		{
 			name:        "does not match with extra spaces",
-			input:       "{{  .AndrewIncludeFile }}",
+			input:       "{{  .AndrewPartialFile }}",
 			wantMatch:   false,
 			wantCapture: "",
 		},
@@ -369,41 +369,41 @@ func TestIncludePatternCapturesData(t *testing.T) {
 	}{
 		{
 			name:     "include with single data attribute",
-			testPage: []byte("{{ .AndrewIncludeFile metaname=\"true\" }}\n"),
+			testPage: []byte("{{ .AndrewPartialFile metaname=\"true\" }}\n"),
 			includeFiles: map[string][]byte{
-				".AndrewIncludeFile": []byte("<p>Name: {{ .metaname }}</p>"),
+				".AndrewPartialFile": []byte("<p>Name: {{ .metaname }}</p>"),
 			},
 			expected: "<p>Name: true</p>\n",
 		},
 		{
 			name:     "include with multiple data attributes",
-			testPage: []byte("{{ .AndrewIncludeFile metaname='Bob' metadate=\"2006-03-04\" }}\n"),
+			testPage: []byte("{{ .AndrewPartialFile metaname='Bob' metadate=\"2006-03-04\" }}\n"),
 			includeFiles: map[string][]byte{
-				".AndrewIncludeFile": []byte("<p>{{ .metaname }} on '{{ .metadate }}'</p>"),
+				".AndrewPartialFile": []byte("<p>{{ .metaname }} on '{{ .metadate }}'</p>"),
 			},
 			expected: "<p>'Bob' on '2006-03-04'</p>\n",
 		},
 		{
 			name:     "last value wins when key repeated",
-			testPage: []byte("{{ .AndrewIncludeFile metaname=\"true\" metaname=\"false\" }}\n"),
+			testPage: []byte("{{ .AndrewPartialFile metaname=\"true\" metaname=\"false\" }}\n"),
 			includeFiles: map[string][]byte{
-				".AndrewIncludeFile": []byte("<p>{{ .metaname }}</p>"),
+				".AndrewPartialFile": []byte("<p>{{ .metaname }}</p>"),
 			},
 			expected: "<p>false</p>\n",
 		},
 		{
 			name:     "include files provided with data tags that don't include anywhere doesn't blow up the parser",
-			testPage: []byte("{{ .AndrewIncludeFile metaname=true }}\n"),
+			testPage: []byte("{{ .AndrewPartialFile metaname=true }}\n"),
 			includeFiles: map[string][]byte{
-				".AndrewIncludeFile": []byte("<p>Static content</p>"),
+				".AndrewPartialFile": []byte("<p>Static content</p>"),
 			},
 			expected: "<p>Static content</p>\n",
 		},
 		{
 			name:     "Values can have spaces",
-			testPage: []byte("{{ .AndrewIncludeFile metaname=\"true beans\" }}\n"),
+			testPage: []byte("{{ .AndrewPartialFile metaname=\"true beans\" }}\n"),
 			includeFiles: map[string][]byte{
-				".AndrewIncludeFile": []byte("<p>{{ .metaname }}</p>"),
+				".AndrewPartialFile": []byte("<p>{{ .metaname }}</p>"),
 			},
 			expected: "<p>true beans</p>\n",
 		},
