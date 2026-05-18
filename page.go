@@ -19,21 +19,21 @@ import (
 
 // A regular expression match returns as {"parentKey": {"key", "value"}}.
 // I want to anchor everything here and in tests on the AndrewPartialFile parent key.
-type includeParser struct {
+type partialsParser struct {
 	fileParentKey string
 	dataParentKey string
 	regex         *regexp.Regexp
 }
 
 var (
-	parserInstance *includeParser
+	parserInstance *partialsParser
 	parserOnce     sync.Once
 )
 
-// getIncludeParser returns the singleton includeParser instance.
-func getIncludeParser() *includeParser {
+// partialParser returns the singleton partialParser instance.
+func partialParser() *partialsParser {
 	parserOnce.Do(func() {
-		parserInstance = &includeParser{
+		parserInstance = &partialsParser{
 			fileParentKey: "AndrewPartialFile",
 			dataParentKey: "AndrewPartialFileData",
 		}
@@ -89,7 +89,7 @@ func (s Server) NewPage(pageUrl string) (Page, error) {
 		return Page{}, err
 	}
 
-	renderedPageContent, err := renderIncludeFiles(s.SiteFiles, pagePath, pageContent)
+	renderedPageContent, err := renderPartialFiles(s.SiteFiles, pagePath, pageContent)
 	if err != nil {
 		return Page{}, err
 	}
@@ -235,66 +235,66 @@ func getTitle(htmlFilePath string, htmlContent []byte) (string, error) {
 	return title, nil
 }
 
-//	renderIncludeFiles parses the syntax {{ .AndrewPartialFile foo=bar bam=bas }}, finds the include
+//	renderPartialFiles parses the syntax {{ .AndrewPartialFile foo=bar bam=bas }}, finds the partial
 //
 // file on the file system, reads its contents and performs a template.Execute against it using the key/value pairs as a hashmap.
 // params:
-//  1. siteFiles: We need this to be able to find the include files.
-//  2. pagePath: This is the path to the currently-being-evaluated page. Finding includes begins in this page's directory and heads
-//     upwards to find the include file.
-//  3. pageContent: The page's contents; the include statement will be parsed out of these.
+//  1. siteFiles: We need this to be able to find the partial files.
+//  2. pagePath: This is the path to the currently-being-evaluated page. Finding partials begins in this page's directory and heads
+//     upwards to find the partial file.
+//  3. pageContent: The page's contents; the partial statement will be parsed out of these.
 //
 // retval
-// []byte: an array of bytes representing the new version of pageContent, with the includes included.
+// []byte: an array of bytes representing the new version of pageContent, with the partials included.
 // error: as normal.
-func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([]byte, error) {
+func renderPartialFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([]byte, error) {
 	// The parser will parse pageContent for the include statements.
-	includeParser := getIncludeParser()
-	matches := includeParser.regex.FindAllStringSubmatch(string(pageContent), -1)
+	partialParser := partialParser()
+	matches := partialParser.regex.FindAllStringSubmatch(string(pageContent), -1)
 
 	// no .AndrewPartialFile directive to parse. Good to bail.
 	if matches == nil {
-		slog.Debug("renderIncludeFile", "AndrewIncludeDirectiveFound", "false", "pageContent", pageContent)
+		slog.Debug("renderPartialFiles", "AndrewPartialDirectiveFound", "false", "pageContent", pageContent)
 		return pageContent, nil
 	}
 
 	// Each match in matches has 2 components:
 	// match[0] == the entire matched string.
 	// match[n > 0] == the contents of the Nth capture group.
-	fileIndex := includeParser.regex.SubexpIndex("AndrewPartialFile")     // returns 1
-	dataIndex := includeParser.regex.SubexpIndex("AndrewPartialFileData") // returns 2
+	fileIndex := partialParser.regex.SubexpIndex("AndrewPartialFile")     // returns 1
+	dataIndex := partialParser.regex.SubexpIndex("AndrewPartialFileData") // returns 2
 
 	var templateBuffer bytes.Buffer
-	var includeContent string
+	var partialContent string
 
 	for _, m := range matches {
-		includeToFind := m[fileIndex]
-		// It's pretty common to put ' and " in the value of the k/v pair in the include statement.
+		partialToFind := m[fileIndex]
+		// It's pretty common to put ' and " in the value of the k/v pair in the partial directive.
 		// Cleaning them up is a better experience than failing the parsing.
 		dataTagsToParse := m[dataIndex]
 
-		// We always need to know the path to the required include file, so that we
-		// can read in the include file to insert it into the web page in place of the {{ }} statement.
-		includeFile, err := findIncludeFile(siteFiles, pagePath, includeToFind)
+		// We always need to know the path to the required partial file, so that we
+		// can read in the partial file to insert it into the web page in place of the {{ }} directive.
+		partialFile, err := findPartialFile(siteFiles, pagePath, partialToFind)
 
 		if err != nil {
-			slog.Debug("renderIncludeFile renderFile not found", "error", err)
+			slog.Debug("renderPartialFiles", "partial not found", pagePath, "error", err)
 
 			return pageContent, err
 		}
 
 		// Read the partial (always needed)
-		partial, err := fs.ReadFile(siteFiles, includeFile)
+		partial, err := fs.ReadFile(siteFiles, partialFile)
 		if err != nil {
 			return pageContent, err
 		}
 
 		// The tag format {{ .AndrewPartialFile spaceman=david }} requires parsing out the key/value pairs.
-		// parseIncludeDataTags returns an empty map if there's no data, which is fine for template execution.
-		tags := parseIncludeDataTags(dataTagsToParse)
+		// parsePartialDataTags returns an empty map if there's no data, which is fine for template execution.
+		tags := parsePartialDataTags(dataTagsToParse)
 
 		// Always execute template - works with empty tags (just returns raw content)
-		partialTemplate, err := template.New(includeParser.dataParentKey).Parse(string(partial))
+		partialTemplate, err := template.New(partialParser.dataParentKey).Parse(string(partial))
 		if err != nil {
 			panic(err)
 		}
@@ -305,17 +305,17 @@ func renderIncludeFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 			return templateBuffer.Bytes(), err
 		}
 
-		includeContent = templateBuffer.String()
+		partialContent = templateBuffer.String()
 
-		slog.Debug("renderIncludeFiles", "includeContent", includeContent)
-		pageContent = []byte(strings.Replace(string(pageContent), m[0], string(includeContent), -1))
+		slog.Debug("renderPartialFiles", "partialContent", partialContent)
+		pageContent = []byte(strings.Replace(string(pageContent), m[0], string(partialContent), -1))
 	}
 
 	return pageContent, nil
 }
 
-func parseIncludeDataTags(data string) map[string]string {
-	slog.Debug("parseIncludeDataTags", "inputData", data)
+func parsePartialDataTags(data string) map[string]string {
+	slog.Debug("parsePartialDataTags", "inputData", data)
 	var tags = make(map[string]string)
 
 	if data == "" {
@@ -410,26 +410,26 @@ func parseIncludeDataTags(data string) map[string]string {
 	return tags
 }
 
-// findIncludeFile will upwards walk from the directory containing includeName upwards in the tree.
-// If the include file is found in the same file as the pagePath, the directory containing the
-// include file is "."; inside an fs.FS "." is only allowed to refer to the root directory, not
+// findPartialFile will upwards walk from the directory containing partialName upwards in the tree.
+// If the partial file is found in the same file as the pagePath, the directory containing the
+// partial file is "."; inside an fs.FS "." is only allowed to refer to the root directory, not
 // the pwd, but fortunately path.Join takes care of that issue for us.
 // args:
-// 1. siteFiles fs.FS - a file system to search for an include file
+// 1. siteFiles fs.FS - a file system to search for an partial file
 // 2. pagePath - the path to the starting page for the search. We simply interrogate this for the containing directory path, to start the upwards walk
-// 3. includeName - the name of the include file to look for
-func findIncludeFile(siteFiles fs.FS, pagePath string, includeName string) (string, error) {
+// 3. partialName - the name of the partial file to look for
+func findPartialFile(siteFiles fs.FS, pagePath string, partialName string) (string, error) {
 	pagePwd := path.Dir(pagePath)
 
-	slog.Debug("findIncludeFile", "pagePath", pagePath)
+	slog.Debug("findPartialFile", "pagePath", pagePath)
 	for {
-		candidate := path.Join(pagePwd, includeName)
+		candidate := path.Join(pagePwd, partialName)
 
 		_, err := fs.Stat(siteFiles, candidate)
 
 		// If the candidate is a real file, we're done.
 		if err == nil {
-			slog.Debug("findIncludeFile", "foundFile", candidate)
+			slog.Debug("findPartialFile", "foundFile", candidate)
 
 			return candidate, nil
 		}

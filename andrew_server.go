@@ -223,8 +223,8 @@ func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
 			return err
 		}
 
-		// Render includes before extracting metadata, so meta tags inside partials are found
-		renderedContent, err := renderIncludeFiles(a.SiteFiles, path, pageContent)
+		// Render partials before extracting metadata, so meta tags inside partials are found
+		renderedContent, err := renderPartialFiles(a.SiteFiles, path, pageContent)
 		if err != nil {
 			return err
 		}

@@ -94,8 +94,8 @@ func getPages(siteFiles fs.FS) ([]Page, error) {
 			return err
 		}
 
-		// Render includes before extracting metadata, so meta tags inside partials are found
-		renderedContent, err := renderIncludeFiles(siteFiles, path, pageContent)
+		// Render partials before extracting metadata, so meta tags inside partials are found
+		renderedContent, err := renderPartialFiles(siteFiles, path, pageContent)
 		if err != nil {
 			return err
 		}

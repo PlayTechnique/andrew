@@ -364,13 +364,13 @@ func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
 	return server
 }
 
-// TestGetSiblingsAndChildrenHonorsPublishTimeFromIncludedPartial verifies
+// TestGetSiblingsAndChildrenHonorsPublishTimeFromPartial verifies
 // that a sibling's <meta name="andrew-publish-time"> is respected even when
 // it lives inside an .AndrewPartialFile partial.
-// The bug: GetSiblingsAndChildren reads meta tags from the raw page bytes before includes are rendered, so a
+// The bug: GetSiblingsAndChildren reads meta tags from the raw page bytes before partials are rendered, so a
 // meta tag inside a partial is invisible and PublishTime silently falls back
 // to mtime.
-func TestGetSiblingsAndChildrenHonorsPublishTimeFromIncludedPartial(t *testing.T) {
+func TestGetSiblingsAndChildrenHonorsPublishTimeFromPartial(t *testing.T) {
 	t.Parallel()
 
 	contentRoot := t.TempDir()
@@ -411,6 +411,6 @@ func TestGetSiblingsAndChildrenHonorsPublishTimeFromIncludedPartial(t *testing.T
 
 	want := time.Date(2024, 1, 28, 0, 0, 0, 0, time.UTC)
 	if !post.PublishTime.Equal(want) {
-		t.Fatalf("PublishTime = %v, want %v (meta tag is inside an included partial; GetSiblingsAndChildren is falling back to mtime)", post.PublishTime, want)
+		t.Fatalf("PublishTime = %v, want %v (meta tag is inside a partial; GetSiblingsAndChildren is falling back to mtime)", post.PublishTime, want)
 	}
 }
