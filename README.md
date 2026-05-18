@@ -4,9 +4,9 @@ A web server, like web servers used to be.
 
 Andrew is a web server for the Indie Web. It has the convenience of a static site generator without a build step; it has the niceties of a CMS like an RSS feed, a sitemap, a self-maintaining table of contents, with no databases attached.
 
-You write your html, css and javascript on your file system, Andrew shows them to the world. Andrew has no opinions about frameworks, libraries, interactivity. Andrew's just a web server.
+You write your html, css and javascript on your file system, Andrew shows them to the world. Andrew has no opinions about frameworks, libraries, interactivity. Andrew's a web server from their perspective, doing a little template-like manipulation before the browser receives a byte.
 
-In 1991, Tim Berners-Lee wrote an HTML file and put it on a file system. 30 years later, linking two pages together needs a database and a build pipeline and a frontend framework. Andrew is what you'd build if you had to explain that evolution to Ken Thompson and felt embarrassed.
+I realised that I'd be embarrassed to explain to Tim Berners-Lee that linking two pages together required a roundtrip database call or building all my pages; I wanted something simple, but with just enough automation to take out the drudge work.
 
 ## Demo
 
@@ -22,7 +22,7 @@ No database. No build step. No framework. No opinions about your CSS. Just some 
 ; curl 127.0.0.1:8080
 
 <body><p>Check out these great child pages:</p>
-<div class="AndrewTableOfContents"> # <----- This div was written by Andrew.
+<div class="AndrewTableOfContents"> # <----- This div and contents were written by Andrew.
 <ul>
 <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink0" href="even-less-bloat.html">even-less-bloat.html</a> - <span class="andrew-page-publish-date">2026-05-17</span></li>
 <li><a class="andrewtableofcontentslink" id="andrewtableofcontentslink1" href="no-bloat.html">no-bloat.html</a> - <span class="andrew-page-publish-date">2026-05-17</span></li>
