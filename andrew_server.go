@@ -86,6 +86,19 @@ func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Ser
 	return s
 }
 
+// logRequest emits one access-log line per request so that traffic can be
+// analyzed with ordinary log tooling. It records the client's remote address,
+// the requested path, and the User-Agent and Referer the client claims, which
+// is what's needed to spot bots that impersonate Googlebot.
+func logRequest(r *http.Request) {
+	slog.Info("request",
+		"remote_addr", r.RemoteAddr,
+		"path", r.RequestURI,
+		"user_agent", r.UserAgent(),
+		"referer", r.Referer(),
+	)
+}
+
 // Serve handles requests for any URL. It checks whether the request is for
 // an index.html page or for anything else (another page, css, javascript etc).
 // If a directory is requested, Serve defaults to finding the index.html page
@@ -95,6 +108,8 @@ func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Ser
 // w http.ResponseWriter - a ResponseWriter to write streams to.
 // r *http.Request - a Request object to interrogate for request metadata
 func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
+
+	logRequest(r)
 
 	pagePath := path.Clean(r.RequestURI)
 	allRequestsCounter.Inc()

@@ -5,12 +5,14 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -362,6 +364,43 @@ func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
 	<-ready
 
 	return server
+}
+
+// TestServeLogsRequestMetadata verifies that each request through Serve emits
+// an access-log line containing the client's user-agent, referer, and path.
+// This is the data needed to spot bots that impersonate Googlebot.
+func TestServeLogsRequestMetadata(t *testing.T) {
+	// Not parallel: this test swaps the process-global slog default.
+	var logs bytes.Buffer
+	original := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(original) })
+
+	s := newTestAndrewServer(t, fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte("<body></body>")},
+	})
+
+	req, err := http.NewRequest(http.MethodGet, s.BaseUrl+"/index.html", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const wantUA = "FakeGooglebot/2.1"
+	const wantReferer = "http://evil.example.com/"
+	req.Header.Set("User-Agent", wantUA)
+	req.Header.Set("Referer", wantReferer)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	got := logs.String()
+	for _, want := range []string{wantUA, wantReferer, "/index.html"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("request log missing %q; got: %s", want, got)
+		}
+	}
 }
 
 // TestGetSiblingsAndChildrenHonorsPublishTimeFromPartial verifies
