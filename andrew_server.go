@@ -90,9 +90,24 @@ func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Ser
 // analyzed with ordinary log tooling. It records the client's remote address,
 // the requested path, and the User-Agent and Referer the client claims, which
 // is what's needed to spot bots that impersonate Googlebot.
+//
+// When Andrew runs behind a reverse proxy (e.g. Traefik), r.RemoteAddr is the
+// proxy's container IP, not the real client. logRequest reads X-Forwarded-For
+// to get the original client IP. If X-Forwarded-For is absent, it falls back
+// to r.RemoteAddr so there's always some IP in the log.
 func logRequest(r *http.Request) {
+	clientIP := r.RemoteAddr
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For can be "client, proxy1, proxy2"; take the first.
+		if comma := strings.Index(xff, ","); comma > 0 {
+			clientIP = strings.TrimSpace(xff[:comma])
+		} else {
+			clientIP = strings.TrimSpace(xff)
+		}
+	}
+
 	slog.Info("request",
-		"remote_addr", r.RemoteAddr,
+		"remote_addr", clientIP,
 		"path", r.RequestURI,
 		"user_agent", r.UserAgent(),
 		"referer", r.Referer(),

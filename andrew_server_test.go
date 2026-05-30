@@ -403,6 +403,43 @@ func TestServeLogsRequestMetadata(t *testing.T) {
 	}
 }
 
+// TestServeLogsXForwardedFor verifies that when Andrew runs behind a reverse
+// proxy (e.g. Traefik), logRequest extracts the real client IP from the
+// X-Forwarded-For header instead of logging the proxy's container IP.
+func TestServeLogsXForwardedFor(t *testing.T) {
+	// Not parallel: this test swaps the process-global slog default.
+	var logs bytes.Buffer
+	original := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(original) })
+
+	s := newTestAndrewServer(t, fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte("<body></body>")},
+	})
+
+	req, err := http.NewRequest(http.MethodGet, s.BaseUrl+"/index.html", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const wantIP = "203.0.113.42"
+	req.Header.Set("X-Forwarded-For", wantIP+", 10.0.0.1") // client, then proxy
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	got := logs.String()
+	if !strings.Contains(got, wantIP) {
+		t.Errorf("request log missing client IP %q; got: %s", wantIP, got)
+	}
+	// Ensure the proxy IP (10.0.0.1) is NOT logged.
+	if strings.Contains(got, "10.0.0.1") {
+		t.Errorf("request log incorrectly included proxy IP; got: %s", got)
+	}
+}
+
 // TestGetSiblingsAndChildrenHonorsPublishTimeFromPartial verifies
 // that a sibling's <meta name="andrew-publish-time"> is respected even when
 // it lives inside an .AndrewPartialFile partial.
