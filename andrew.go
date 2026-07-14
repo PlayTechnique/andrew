@@ -114,7 +114,14 @@ func ListenAndServe(contentRoot fs.FS, address string, hostname string, certInfo
 // the remaining arguments, and any error encountered.
 func ParseOpts(args []string, printDest io.Writer) (*CertInfo, *RssInfo, []string, error) {
 	// Whitespace formatting here provided lovingly by eyeballing it.
-	help := `Usage: andrew supports both arguments and options. Arguments are positional, options are not.
+	help := `Usage: Andrew runs from a directory we call the Content Root. By default it's the present working directory that andrew runs in,
+	but you can specify as your first argument a different directory.
+	
+	Andrew defaults to finding a file called index.html to serve. The paths pages/index.html and pages/ in your URL are equivalent.
+
+	andrew supports both arguments and options. Arguments are positional and mandatory; options are introduced with a flag and are not mandatory.
+	The options are stripped from the command line before the arguments are parsed, so order of options and arguments is irrelevant.
+	
 	andrew [contentRoot] [address] [baseUrl] || (-c|--cert) path/to/ssl.crt (-p|--privatekey) path/to/ssl.key (-h|--help) help message
 	
 	Arguments:
