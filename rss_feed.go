@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
-	"path"
 	"strings"
 	"time"
 )
 
 func (a Server) ServeRssFeed(w http.ResponseWriter, r *http.Request) {
-	rss := GenerateRssFeed(a.SiteFiles, a.BaseUrl, a.RssTitle, a.RssDescription)
+	rss := GenerateRssFeed(a.SiteFiles, a.BaseUrl, a.RssTitle, a.RssDescription, a.RssDir)
 
 	w.WriteHeader(http.StatusOK)
 	_, err := fmt.Fprint(w, string(rss))
@@ -28,7 +27,7 @@ func (a Server) ServeRssFeed(w http.ResponseWriter, r *http.Request) {
 // Finally, we close the channel.
 // It's sort of an anachronistic site to visit, but https://www.rssboard.org/rss-specification is the reference for
 // what I'm including in these items and the channel.
-func GenerateRssFeed(f fs.FS, baseUrl string, rssChannelTitle string, rssChannelDescription string) []byte {
+func GenerateRssFeed(f fs.FS, baseUrl string, rssChannelTitle string, rssChannelDescription string, rssDir string) []byte {
 	buff := new(bytes.Buffer)
 	rssUrl := baseUrl + "/rss.xml"
 
@@ -42,7 +41,7 @@ func GenerateRssFeed(f fs.FS, baseUrl string, rssChannelTitle string, rssChannel
 `
 	)
 
-	pages, err := getPages(f)
+	pages, err := getPages(f, rssDir)
 
 	if err != nil {
 		panic(err)
@@ -69,11 +68,10 @@ func GenerateRssFeed(f fs.FS, baseUrl string, rssChannelTitle string, rssChannel
 	return buff.Bytes()
 }
 
-func getPages(siteFiles fs.FS) ([]Page, error) {
+func getPages(siteFiles fs.FS, startDir string) ([]Page, error) {
 	pages := []Page{}
-	localContentRoot := path.Dir(".")
 
-	err := fs.WalkDir(siteFiles, localContentRoot, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(siteFiles, startDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -114,7 +112,7 @@ func getPages(siteFiles fs.FS) ([]Page, error) {
 		// the root of the file system
 		s_page := Page{
 			Title:       title,
-			UrlPath:     strings.TrimPrefix(path, localContentRoot+"/"),
+			UrlPath:     path,
 			Content:     string(renderedContent),
 			PublishTime: publishTime,
 		}

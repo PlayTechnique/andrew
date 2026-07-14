@@ -29,6 +29,7 @@ type Server struct {
 	Andrewtableofcontentstemplate string // The string we're searching for inside a Page that should be replaced with a template.
 	RssTitle                      string // The title of your RSS feed.
 	RssDescription                string // The description of your RSS feed. Go wild.
+	RssDir                        string // The directory containing articles for your RSS feed.
 	HTTPServer                    *http.Server
 }
 
@@ -70,6 +71,7 @@ func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Ser
 		BaseUrl:                       baseUrl,
 		RssTitle:                      rssInfo.Title,
 		RssDescription:                rssInfo.Description,
+		RssDir:                        rssInfo.Dir,
 	}
 
 	mux := http.NewServeMux()

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // CertInfo tracks SSL certificate information. Andrew can optionally serve HTTPS traffic,
@@ -20,10 +21,12 @@ type CertInfo struct {
 type RssInfo struct {
 	Title       string
 	Description string
+	Dir         string
 }
 
 const (
 	DefaultContentRoot        = "."
+	DefaultRssRoot            = "."
 	DefaultAddress            = ":8080"
 	DefaultBaseUrl            = "http://localhost:8080"
 	DefaultRssFeedTitle       = "Home"
@@ -128,6 +131,7 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, *RssInfo, []strin
 	  -p, --privatekey     Path to the private key file. Must be used with --cert.
 	  -t, --rsstitle       The title of your rss feed. Be zany.
 	  -d, --rssdescription The description of your rss feed. Go wild. Wrap it in quotes.
+	  -i, --rssdir         The directory you would like your rss feed to serve. By default, all html pages discovered are part of the rss feed.
 	  -h, --help           Display this help message.
 `
 
@@ -155,6 +159,14 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, *RssInfo, []strin
 		case "-d", "--rssdescription":
 			if i+1 < len(args) {
 				rssInfo.Description = args[i+1]
+				i++
+			}
+
+		case "-r", "--rssdir":
+			if i+1 < len(args) {
+				// rssdir is a path inside the content fs.FS, which rejects
+				// trailing slashes, so strip one if the user supplied it.
+				rssInfo.Dir = strings.TrimSuffix(args[i+1], "/")
 				i++
 			}
 
