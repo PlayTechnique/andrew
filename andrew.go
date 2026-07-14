@@ -54,7 +54,6 @@ func Main(args []string, printDest io.Writer) int {
 	}
 
 	contentRoot, address, baseUrl := ParseArgs(remainingArgs)
-
 	contentRoot, err = filepath.Abs(contentRoot)
 
 	if err != nil {
@@ -140,6 +139,9 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, *RssInfo, []strin
 	  -d, --rssdescription The description of your rss feed. Go wild. Wrap it in quotes.
 	  -i, --rssdir         The directory you would like your rss feed to serve. By default, all html pages discovered are part of the rss feed.
 	  -h, --help           Display this help message.
+	
+	Environment:
+	  DEBUG  			   Set this to the string "true" to enable debug logs
 `
 
 	var certPath, keyPath string
