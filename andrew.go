@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -62,7 +61,8 @@ func Main(args []string, printDest io.Writer) int {
 
 	fmt.Fprintf(printDest, "Serving from %s, listening on %s, serving on %s", contentRoot, address, baseUrl)
 
-	err = ListenAndServe(os.DirFS(contentRoot), address, baseUrl, certInfo, rssInfo)
+	andrewServer := NewServer(contentRoot, os.DirFS(contentRoot), address, baseUrl, *rssInfo)
+	err = ListenAndServe(andrewServer, certInfo)
 	if err != nil {
 		panic(err)
 	}
@@ -82,17 +82,19 @@ func Main(args []string, printDest io.Writer) int {
 // hostname - your hostname! This is injected into your sitemap and RSS feeds.
 // certInfo - certificate info type. If the members are empty, Andrew serves http.
 // rssInfo - an RSS info structure. This lets the RSS Feed show info and description.
-func ListenAndServe(contentRoot fs.FS, address string, hostname string, certInfo *CertInfo, rssInfo *RssInfo) error {
-	andrewServer := NewServer(contentRoot, address, hostname, *rssInfo)
+func ListenAndServe(andrew *Server, certInfo *CertInfo) error {
 
 	if certInfo != nil && certInfo.CertPath != "" && certInfo.PrivateKeyPath != "" {
+		slog.Debug("ListenAndServe", "certPath", certInfo.CertPath)
+		slog.Debug("ListenAndServe", "certPrivateKeyPath", certInfo.PrivateKeyPath)
 		// Use HTTPS with the provided certificate and key
-		err := andrewServer.ListenAndServeTLS(certInfo.CertPath, certInfo.PrivateKeyPath)
+		err := andrew.ListenAndServeTLS(certInfo.CertPath, certInfo.PrivateKeyPath)
 		return err
 	}
 
+	slog.Debug("ListenAndServe", "certInfo", "null")
 	// Fallback to HTTP if no certificate is provided
-	err := andrewServer.ListenAndServe()
+	err := andrew.ListenAndServe()
 	return err
 }
 
@@ -137,7 +139,7 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, *RssInfo, []strin
 	  -p, --privatekey     Path to the private key file. Must be used with --cert.
 	  -t, --rsstitle       The title of your rss feed. Be zany.
 	  -d, --rssdescription The description of your rss feed. Go wild. Wrap it in quotes.
-	  -i, --rssdir         The directory you would like your rss feed to serve. By default, all html pages discovered are part of the rss feed.
+	  -r, --rssdir         The directory you would like your rss feed to serve. By default, all html pages discovered are part of the rss feed.
 	  -h, --help           Display this help message.
 	
 	Environment:
@@ -145,7 +147,7 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, *RssInfo, []strin
 `
 
 	var certPath, keyPath string
-	rssInfo := &RssInfo{Title: DefaultRssFeedTitle, Description: DefaultRssFeedDescription}
+	rssInfo := &RssInfo{Title: DefaultRssFeedTitle, Description: DefaultRssFeedDescription, Dir: DefaultRssRoot}
 
 	remainingArgs := []string{}
 

@@ -32,7 +32,7 @@ func TestAndrewTableOfContentsIsGeneratedCorrectlyInContentrootDirectory(t *test
 `)},
 	}
 
-	s := newTestAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, ".",contentRoot)
 
 	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
@@ -73,7 +73,7 @@ func TestAndrewTableOfContentsIsGeneratedCorrectlyInAChildDirectory(t *testing.T
 `)},
 	}
 
-	s := newTestAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, ".",contentRoot)
 
 	resp, err := http.Get(s.BaseUrl + "/parentDir/index.html")
 	if err != nil {
@@ -156,7 +156,7 @@ func TestInvalidAndrewPublishTimeContentDoesNotCrashTheWebServer(t *testing.T) {
 `)},
 	}
 
-	s := newTestAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, ".",contentRoot)
 
 	resp, err := http.Get(s.BaseUrl)
 	if err != nil {
@@ -187,7 +187,7 @@ func TestOneArticleAppearsUnderParentDirectoryForAndrewTableOfContentsWithDirect
 		"otherPage.html":       &fstest.MapFile{},
 	}
 
-	s := newTestAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, ".",contentRoot)
 	resp, err := http.Get(s.BaseUrl + "/groupedContents.html")
 	if err != nil {
 		t.Fatal(err)
@@ -223,7 +223,7 @@ func TestFullHTMLReturnedByAndrewTableOfContents(t *testing.T) {
 		"parentDir/childDir/1-2-3.html": &fstest.MapFile{},
 	}
 
-	s := newTestAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, ".",contentRoot)
 	resp, err := http.Get(s.BaseUrl + "/groupedContents.html")
 	if err != nil {
 		t.Fatal(err)
@@ -335,7 +335,7 @@ func TestAndrewTableOfContentsWithDirectoriesSortsDirectoriesByMostRecentContent
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := newTestAndrewServer(t, fstest.MapFS(tt.files))
+			s := newTestAndrewServer(t, ".",fstest.MapFS(tt.files))
 			resp, err := http.Get(s.BaseUrl + "/index.html")
 			if err != nil {
 				t.Fatal(err)
@@ -374,7 +374,7 @@ func TestAndrewTableOfContentsUsesCorrectClasses(t *testing.T) {
 		},
 	}
 
-	s := newTestAndrewServer(t, fstest.MapFS(files))
+	s := newTestAndrewServer(t, ".",fstest.MapFS(files))
 	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
 		t.Fatal(err)
@@ -406,7 +406,7 @@ func TestAndrewTableOfContentsWithDirectoriesUsesCorrectClasses(t *testing.T) {
 		},
 	}
 
-	s := newTestAndrewServer(t, fstest.MapFS(files))
+	s := newTestAndrewServer(t, ".",fstest.MapFS(files))
 	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
 		t.Fatal(err)

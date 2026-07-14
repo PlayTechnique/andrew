@@ -23,13 +23,12 @@ import (
 // When a URL is requested, Server creates an Page for the file referenced
 // in that URL and then serves the Page.
 type Server struct {
-	SiteFiles                     fs.FS  // The files being served
-	BaseUrl                       string // The URL used in any links generated for this website that should contain the hostname.
-	Address                       string // IpAddress:Port combo to be served on.
-	Andrewtableofcontentstemplate string // The string we're searching for inside a Page that should be replaced with a template.
-	RssTitle                      string // The title of your RSS feed.
-	RssDescription                string // The description of your RSS feed. Go wild.
-	RssDir                        string // The directory containing articles for your RSS feed.
+	SiteFiles                     fs.FS   // The files being served
+	BaseUrl                       string  // The URL used in any links generated for this website that should contain the hostname.
+	ContentRoot                   string  // The starting path for the blog which the user supplied. Used in some path cleanup issues.
+	Address                       string  // IpAddress:Port combo to be served on.
+	Andrewtableofcontentstemplate string  // The string we're searching for inside a Page that should be replaced with a template.
+	RssInfo                       RssInfo // An RssInfo struct, so we know what we're serving for RSS information
 	HTTPServer                    *http.Server
 }
 
@@ -63,15 +62,15 @@ var allHttp200RequestsByPathCounter = promauto.NewCounterVec(prometheus.CounterO
 // rssTitle: The title of the RSS feed that shares your site.
 // rssDescription: The description for your RSS feed. Jazz it up.
 // Returns an [Server].
-func NewServer(contentRoot fs.FS, address, baseUrl string, rssInfo RssInfo) *Server {
+func NewServer(contentRoot string, siteFiles fs.FS, address, baseUrl string, rssInfo RssInfo) *Server {
+
 	s := &Server{
-		SiteFiles:                     contentRoot,
+		SiteFiles:                     siteFiles,
 		Andrewtableofcontentstemplate: "AndrewTableOfContents",
 		Address:                       address,
+		ContentRoot:                   contentRoot,
 		BaseUrl:                       baseUrl,
-		RssTitle:                      rssInfo.Title,
-		RssDescription:                rssInfo.Description,
-		RssDir:                        rssInfo.Dir,
+		RssInfo:                       rssInfo,
 	}
 
 	mux := http.NewServeMux()

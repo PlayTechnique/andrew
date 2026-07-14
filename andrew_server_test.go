@@ -32,7 +32,7 @@ func TestServerRespondsStatusOKForExistingPage(t *testing.T) {
 </body>
 `)
 
-	s := newTestAndrewServer(t, fstest.MapFS{
+	s := newTestAndrewServer(t, ".",fstest.MapFS{
 		"index.html": &fstest.MapFile{
 			Data: expected,
 		},
@@ -58,7 +58,7 @@ func TestServerRespondsStatusOKForExistingPage(t *testing.T) {
 func TestGetForNonExistentPageGeneratesStatusNotFound(t *testing.T) {
 	t.Parallel()
 
-	s := newTestAndrewServer(t, fstest.MapFS{})
+	s := newTestAndrewServer(t, ".",fstest.MapFS{})
 
 	resp, err := http.Get(s.BaseUrl + "/page.html")
 	if err != nil {
@@ -81,7 +81,7 @@ func TestGetForUnreadablePageGeneratesStatusForbidden(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := newTestAndrewServer(t, os.DirFS(contentRoot))
+	s := newTestAndrewServer(t, ".",os.DirFS(contentRoot))
 
 	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
@@ -105,7 +105,7 @@ func Test500ErrorForUnforeseenErrorCase(t *testing.T) {
 func TestGetSitemapReturnsTheSitemap(t *testing.T) {
 	t.Parallel()
 
-	s := newTestAndrewServer(t, fstest.MapFS{})
+	s := newTestAndrewServer(t, ".",fstest.MapFS{})
 
 	resp, err := http.Get(s.BaseUrl + "/sitemap.xml")
 	if err != nil {
@@ -143,7 +143,7 @@ func TestGettingADirectoryDefaultsToIndexHtml(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := newTestAndrewServer(t, os.DirFS(contentRoot))
+	s := newTestAndrewServer(t, ".",os.DirFS(contentRoot))
 
 	resp, err := http.Get(s.BaseUrl + "/pages/")
 	if err != nil {
@@ -167,7 +167,7 @@ func TestServerServesRequestedPage(t *testing.T) {
 		"page.html": &fstest.MapFile{Data: []byte("some text")},
 	}
 
-	s := newTestAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, ".",contentRoot)
 	t.Logf("Server running on %s\n", s.BaseUrl)
 
 	resp, err := http.Get(s.BaseUrl + "/page.html")
@@ -201,7 +201,7 @@ func TestServerServesIndexPageByDefault(t *testing.T) {
 		"index.html": &fstest.MapFile{Data: expected},
 	}
 
-	s := newTestAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, ".",contentRoot)
 
 	resp, err := http.Get(s.BaseUrl)
 	if err != nil {
@@ -243,7 +243,7 @@ func TestCorrectMimeTypeIsSetForKnownFileTypes(t *testing.T) {
 		"page.ico":  {},
 	}
 
-	s := newTestAndrewServer(t, contentRoot)
+	s := newTestAndrewServer(t, ".",contentRoot)
 
 	for page := range contentRoot {
 		resp, err := http.Get(s.BaseUrl + "/" + page)
@@ -322,7 +322,7 @@ func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) 
 
 // newTestAndrewServer starts an andrew and returns the localhost url that you can run http gets against
 // to retrieve data from that server
-func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
+func newTestAndrewServer(t *testing.T, contentRoot string, siteFiles fs.FS) *andrew.Server {
 	t.Helper()
 
 	// Listen on IPv4 localhost on any available port
@@ -336,7 +336,7 @@ func newTestAndrewServer(t *testing.T, contentRoot fs.FS) *andrew.Server {
 	addr := listener.Addr().String()
 	listener.Close()
 
-	server := andrew.NewServer(contentRoot, addr, "http://"+addr, rssInfo)
+	server := andrew.NewServer(contentRoot, siteFiles, addr, "http://"+addr, rssInfo)
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -376,7 +376,7 @@ func TestServeLogsRequestMetadata(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(original) })
 
-	s := newTestAndrewServer(t, fstest.MapFS{
+	s := newTestAndrewServer(t, ".",fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte("<body></body>")},
 	})
 
@@ -413,7 +413,7 @@ func TestServeLogsXForwardedFor(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(original) })
 
-	s := newTestAndrewServer(t, fstest.MapFS{
+	s := newTestAndrewServer(t, ".",fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte("<body></body>")},
 	})
 

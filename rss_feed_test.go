@@ -32,22 +32,22 @@ func TestGenerateRssFeedIncludesRequiredElements(t *testing.T) {
 		"page.html":  {},
 	}
 
-	title := "PlayTechnique"
-	baseUrl := "http://localhost:8080"
-	description := "Learning to play better."
+	rssInfo := andrew.RssInfo{Title: "PlayTechnique", Dir: ".", Description: "Learning to play better."}
 
-	feed := andrew.GenerateRssFeed(testFs, baseUrl, title, description, ".")
+	baseUrl := "http://localhost:8080"
+
+	feed := andrew.GenerateRssFeed(testFs, ".", baseUrl, rssInfo)
 
 	if !bytes.Equal(feed, expected) {
 		t.Error(cmp.Diff(expected, feed))
 	}
 
-	if !bytes.Contains(feed, []byte(description)) {
-		t.Errorf("Expected feed to contain description %s but it does not", description)
+	if !bytes.Contains(feed, []byte(rssInfo.Description)) {
+		t.Errorf("Expected feed to contain description %s but it does not", rssInfo.Description)
 	}
 
-	if !bytes.Contains(feed, []byte(title)) {
-		t.Errorf("Expected feed to contain description %s but it does not", title)
+	if !bytes.Contains(feed, []byte(rssInfo.Title)) {
+		t.Errorf("Expected feed to contain description %s but it does not", rssInfo.Title)
 	}
 }
 
@@ -82,21 +82,18 @@ func TestGenerateRssFeedLinksToPagesInTheRssDirCorrectly(t *testing.T) {
 		"foo/barpage.html": {},
 	}
 
-	title := "PlayTechnique"
-	baseUrl := "http://localhost:8080"
-	description := "Learning to play better."
+	rssDirectories := []string{"foo", "/foo"}
 
-	feed := andrew.GenerateRssFeed(testFs, baseUrl, title, description, "foo")
+	for _, rootRssDir := range rssDirectories {
 
-	if !bytes.Equal(feed, expected) {
-		t.Error(cmp.Diff(expected, feed))
-	}
+		rssInfo := andrew.RssInfo{Title: "PlayTechnique", Dir: rootRssDir, Description: "Learning to play better."}
 
-	if !bytes.Contains(feed, []byte(description)) {
-		t.Errorf("Expected feed to contain description %s but it does not", description)
-	}
+		baseUrl := "http://localhost:8080"
 
-	if !bytes.Contains(feed, []byte(title)) {
-		t.Errorf("Expected feed to contain description %s but it does not", title)
+		feed := andrew.GenerateRssFeed(testFs, ".", baseUrl, rssInfo)
+
+		if !bytes.Equal(feed, expected) {
+			t.Error(cmp.Diff(expected, feed))
+		}
 	}
 }
