@@ -4,6 +4,7 @@ import (
 	"maps"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -433,5 +434,171 @@ func TestPartialDataIsParsed(t *testing.T) {
 				t.Errorf("--Expected:\n%s\n--Received:\n%s", tt.expected, page.Content)
 			}
 		})
+	}
+}
+
+func TestPagesInDir(t *testing.T) {
+	tests := []struct {
+		name         string
+		startDir     string
+		wantUrlPaths []string
+	}{
+		{
+			name:     "root walks the whole site, skipping index and non-html files",
+			startDir: ".",
+			wantUrlPaths: []string{
+				"blog/newest.html",
+				"blog/oldest.html",
+				"blog/reindex.html",
+				"blog/untitled.html",
+				"page.html",
+			},
+		},
+		{
+			name:     "a subdirectory scopes the walk to that directory",
+			startDir: "blog",
+			wantUrlPaths: []string{
+				"blog/newest.html",
+				"blog/oldest.html",
+				"blog/reindex.html",
+				"blog/untitled.html",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pages, err := pagesInDir(testSiteFiles(), tt.startDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := []string{}
+			for _, page := range pages {
+				got = append(got, page.UrlPath)
+			}
+
+			if diff := cmp.Diff(tt.wantUrlPaths, got); diff != "" {
+				t.Error(diff)
+			}
+		})
+	}
+}
+
+func TestPagesInDirExtractsTitleAndPublishTime(t *testing.T) {
+	pages, err := pagesInDir(testSiteFiles(), "blog")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byPath := map[string]Page{}
+	for _, page := range pages {
+		byPath[page.UrlPath] = page
+	}
+
+	tests := []struct {
+		name            string
+		urlPath         string
+		wantTitle       string
+		wantPublishTime time.Time
+	}{
+		{
+			name:            "explicit title element and andrew-publish-time meta",
+			urlPath:         "blog/newest.html",
+			wantTitle:       "Newest",
+			wantPublishTime: time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:            "no title element falls back to basename, no meta falls back to ModTime",
+			urlPath:         "blog/untitled.html",
+			wantTitle:       "untitled.html",
+			wantPublishTime: time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			page, ok := byPath[tt.urlPath]
+			if !ok {
+				t.Fatalf("%s missing from returned pages", tt.urlPath)
+			}
+			if page.Title != tt.wantTitle {
+				t.Errorf("Title = %q, want %q", page.Title, tt.wantTitle)
+			}
+			if !page.PublishTime.Equal(tt.wantPublishTime) {
+				t.Errorf("PublishTime = %s, want %s", page.PublishTime, tt.wantPublishTime)
+			}
+		})
+	}
+}
+
+func TestPagesInDirErrorsOnMissingStartDir(t *testing.T) {
+	_, err := pagesInDir(testSiteFiles(), "does-not-exist")
+	if err == nil {
+		t.Fatal("expected an error for a startDir that is not in the fs.FS, got nil")
+	}
+}
+
+// TestPagesInDirSkipsPagesWithBrokenPartials pins the choice to degrade one page rather than
+// fail everything around it: an author who typos a partial name should lose that page from
+// the listings, not the whole rss feed or table of contents that the page appears in.
+func TestPagesInDirSkipsPagesWithBrokenPartials(t *testing.T) {
+	siteFiles := fstest.MapFS{
+		"good.html": &fstest.MapFile{Data: []byte("<title>Good</title>")},
+		// No .AndrewPartialFile.missing exists anywhere, so findPartialFile walks to the
+		// root of the fs and gives up.
+		"broken.html": &fstest.MapFile{Data: []byte("<title>Broken</title>{{ .AndrewPartialFile.missing }}")},
+	}
+
+	pages, err := pagesInDir(siteFiles, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := []string{}
+	for _, page := range pages {
+		got = append(got, page.UrlPath)
+	}
+
+	if diff := cmp.Diff([]string{"good.html"}, got); diff != "" {
+		t.Error(diff)
+	}
+}
+
+// testSiteFiles is a fixture site reflecting the basic cases pagesInDir has to handle:
+// index.html exclusion, non-html exclusion, directory scoping, both title sources and both
+// publish-time sources. Every page gets a distinct date so sort order is unambiguous.
+func testSiteFiles() fstest.MapFS {
+	return fstest.MapFS{
+		// Excluded: index pages are never listed.
+		"index.html":      &fstest.MapFile{Data: []byte("<title>Home</title>")},
+		"blog/index.html": &fstest.MapFile{Data: []byte("<title>Blog</title>")},
+
+		// Excluded: not html. htmlguide.txt has "html" in its name, and html/notes.txt
+		// lives in a directory called html, but neither is an html page.
+		"styles.css":     &fstest.MapFile{Data: []byte("body {}")},
+		"blog/notes.txt": &fstest.MapFile{Data: []byte("scratch")},
+		"htmlguide.txt":  &fstest.MapFile{Data: []byte("prose about html")},
+		"html/notes.txt": &fstest.MapFile{Data: []byte("more prose")},
+
+		// Included: explicit <title> and explicit andrew-publish-time.
+		"page.html": &fstest.MapFile{Data: []byte(
+			`<head><title>Root Page</title><meta name="andrew-publish-time" content="2024-01-01"></head>`)},
+
+		// Included: the filename contains "index.html" as a substring, but it is a real
+		// page rather than an index.
+		"blog/reindex.html": &fstest.MapFile{Data: []byte(
+			`<head><title>Reindex</title><meta name="andrew-publish-time" content="2023-06-01"></head>`)},
+		"blog/newest.html": &fstest.MapFile{Data: []byte(
+			`<head><title>Newest</title><meta name="andrew-publish-time" content="2024-03-01"></head>`)},
+		"blog/oldest.html": &fstest.MapFile{Data: []byte(
+			`<head><title>Oldest</title><meta name="andrew-publish-time" content="2024-02-01"></head>`)},
+
+		// Included: no <title> -> title falls back to basename;
+		// no meta -> publish time falls back to ModTime.
+		"blog/untitled.html": &fstest.MapFile{
+			Data:    []byte("<p>no title element here</p>"),
+			ModTime: time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
 	}
 }

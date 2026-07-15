@@ -2,6 +2,8 @@ package andrew_test
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"testing/fstest"
 
@@ -36,7 +38,10 @@ func TestGenerateRssFeedIncludesRequiredElements(t *testing.T) {
 
 	baseUrl := "http://localhost:8080"
 
-	feed := andrew.GenerateRssFeed(testFs, ".", baseUrl, rssInfo)
+	feed, err := andrew.GenerateRssFeed(testFs, baseUrl, rssInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if !bytes.Equal(feed, expected) {
 		t.Error(cmp.Diff(expected, feed))
@@ -82,18 +87,52 @@ func TestGenerateRssFeedLinksToPagesInTheRssDirCorrectly(t *testing.T) {
 		"foo/barpage.html": {},
 	}
 
-	rssDirectories := []string{"foo", "/foo"}
+	// GenerateRssFeed takes a Dir that is already normalised; turning "/foo" into "foo" is
+	// option parsing's job.
+	rssInfo := andrew.RssInfo{Title: "PlayTechnique", Dir: "foo", Description: "Learning to play better."}
 
-	for _, rootRssDir := range rssDirectories {
+	baseUrl := "http://localhost:8080"
 
-		rssInfo := andrew.RssInfo{Title: "PlayTechnique", Dir: rootRssDir, Description: "Learning to play better."}
+	feed, err := andrew.GenerateRssFeed(testFs, baseUrl, rssInfo)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		baseUrl := "http://localhost:8080"
+	if !bytes.Equal(feed, expected) {
+		t.Error(cmp.Diff(expected, feed))
+	}
+}
 
-		feed := andrew.GenerateRssFeed(testFs, ".", baseUrl, rssInfo)
+// TestGenerateRssFeedReturnsAnErrorRatherThanPanicking uses an rss dir that isn't in the
+// site. Main resolves the rss dir at startup so a running andrew won't reach this, but
+// GenerateRssFeed is exported and a panic here used to escape into an http handler, where it
+// cost the client its connection instead of an http status.
+func TestGenerateRssFeedReturnsAnErrorRatherThanPanicking(t *testing.T) {
+	t.Parallel()
 
-		if !bytes.Equal(feed, expected) {
-			t.Error(cmp.Diff(expected, feed))
-		}
+	rssInfo := andrew.RssInfo{Title: "PlayTechnique", Dir: "does-not-exist", Description: "Learning to play better."}
+
+	_, err := andrew.GenerateRssFeed(fstest.MapFS{"index.html": {}}, "http://localhost:8080", rssInfo)
+	if err == nil {
+		t.Fatal("expected an error for an rss dir that is not in the site, got nil")
+	}
+}
+
+// TestServeRssFeedReturnsAnHttpErrorWhenTheFeedCannotBeGenerated is the handler-level
+// contract: a feed that cannot be built has to reach the client as a status code. Before
+// GenerateRssFeed returned errors, this panicked before WriteHeader, so net/http recovered
+// it and closed the connection, and the client saw an empty reply rather than an error.
+func TestServeRssFeedReturnsAnHttpErrorWhenTheFeedCannotBeGenerated(t *testing.T) {
+	t.Parallel()
+
+	rssInfo := andrew.RssInfo{Title: "PlayTechnique", Dir: "does-not-exist", Description: "Learning to play better."}
+	s := andrew.NewServer(fstest.MapFS{"index.html": {}}, ":0", "http://localhost:8080", rssInfo)
+
+	w := httptest.NewRecorder()
+	s.ServeRssFeed(w, httptest.NewRequest(http.MethodGet, "/rss.xml", nil))
+
+	// CheckPageErrors maps the fs.ErrNotExist from the walk onto a 404.
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
 	}
 }

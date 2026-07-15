@@ -25,10 +25,9 @@ import (
 type Server struct {
 	SiteFiles                     fs.FS   // The files being served
 	BaseUrl                       string  // The URL used in any links generated for this website that should contain the hostname.
-	ContentRoot                   string  // The starting path for the blog which the user supplied. Used in some path cleanup issues.
 	Address                       string  // IpAddress:Port combo to be served on.
 	Andrewtableofcontentstemplate string  // The string we're searching for inside a Page that should be replaced with a template.
-	RssInfo                       RssInfo // An RssInfo struct, so we know what we're serving for RSS information
+	RssInfo                       RssInfo // An RssInfo struct, so we know what we're serving for RSS information. Its Dir is expected to arrive already resolved: normalised, and known to exist in SiteFiles.
 	HTTPServer                    *http.Server
 }
 
@@ -56,19 +55,16 @@ var allHttp200RequestsByPathCounter = promauto.NewCounterVec(prometheus.CounterO
 }, []string{"path", "status"})
 
 // NewServer builds your web server.
-// contentRoot: an fs.FS of the files that you're serving.
+// siteFiles: an fs.FS of the files that you're serving.
 // address: The ip address to bind this web server to.
 // baseUrl: https://example.com or http://www.example.com
-// rssTitle: The title of the RSS feed that shares your site.
-// rssDescription: The description for your RSS feed. Jazz it up.
-// Returns an [Server].
-func NewServer(contentRoot string, siteFiles fs.FS, address, baseUrl string, rssInfo RssInfo) *Server {
-
+// rssInfo: A struct containing all known information about your RSS feed. Its Dir must
+// already be resolved; resolveRssDir does that, and [Main] calls it before NewServer.
+func NewServer(siteFiles fs.FS, address, baseUrl string, rssInfo RssInfo) *Server {
 	s := &Server{
 		SiteFiles:                     siteFiles,
 		Andrewtableofcontentstemplate: "AndrewTableOfContents",
 		Address:                       address,
-		ContentRoot:                   contentRoot,
 		BaseUrl:                       baseUrl,
 		RssInfo:                       rssInfo,
 	}
@@ -229,63 +225,19 @@ func CheckPageErrors(err error) (string, int) {
 // to return all of the files both in the same directory and further down in the directory structure.
 func (a Server) GetSiblingsAndChildren(pagePath string) ([]Page, error) {
 	slog.Debug("GetSiblingsAndChildren", "pagePath", pagePath)
-	pages := []Page{}
+
 	localContentRoot := path.Dir(pagePath)
 
-	err := fs.WalkDir(a.SiteFiles, localContentRoot, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
+	pages, err := pagesInDir(a.SiteFiles, localContentRoot)
+	if err != nil {
+		return nil, err
+	}
 
-		slog.Debug("GetSiblingsAndChildren", "currentPath", path)
-		// We don't list index files in our collection of siblings and children, because I don't
-		// want a link back to a page that contains only links.
-		if strings.Contains(path, "index.html") {
-			return nil
-		}
+	// links require a URL relative to the page we're discovering siblings from, not from
+	// the root of the file system
+	for i := range pages {
+		pages[i].UrlPath = strings.TrimPrefix(pages[i].UrlPath, localContentRoot+"/")
+	}
 
-		// If the file we're considering isn't an html file, let's move on with our day.
-		if !strings.Contains(path, "html") {
-			return nil
-		}
-
-		pageContent, err := fs.ReadFile(a.SiteFiles, path)
-		if err != nil {
-			return err
-		}
-
-		// Render partials before extracting metadata, so meta tags inside partials are found
-		renderedContent, err := renderPartialFiles(a.SiteFiles, path, pageContent)
-		if err != nil {
-			// Skip this page in sibling discovery if it has broken partials
-			// The page itself will still 404 when directly requested
-			slog.Info("skipping page with broken partial reference", "path", path, "error", err)
-			return nil
-		}
-
-		title, err := getTitle(path, renderedContent)
-		if err != nil {
-			return err
-		}
-
-		publishTime, err := getPublishTime(a.SiteFiles, path, renderedContent)
-		if err != nil {
-			return err
-		}
-
-		// links require a URL relative to the page we're discovering siblings from, not from
-		// the root of the file system
-		s_page := Page{
-			Title:       title,
-			UrlPath:     strings.TrimPrefix(path, localContentRoot+"/"),
-			Content:     string(renderedContent),
-			PublishTime: publishTime,
-		}
-
-		pages = append(pages, s_page)
-
-		return nil
-	})
-
-	return pages, err
+	return pages, nil
 }

@@ -6,6 +6,16 @@ test name="":
     	go test -v -run "{{ name }}" ./...
     fi
 
+coverage flag="":
+    #!/usr/bin/env sh
+    go test -coverprofile=coverage.out ./...
+    go tool cover -func=coverage.out
+    go tool cover -html=coverage.out -o coverage.html
+    echo "wrote coverage.html"
+    if [ "{{ flag }}" = "-o" ]; then
+    	open coverage.html
+    fi
+
 serve:
     go run ./cmd/andrew ../playtechnique/website/content
 

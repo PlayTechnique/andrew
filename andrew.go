@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // CertInfo tracks SSL certificate information. Andrew can optionally serve HTTPS traffic,
@@ -48,8 +47,7 @@ func Main(args []string, printDest io.Writer) int {
 		if err.Error() == "helped" {
 			return 0
 		}
-		fmt.Fprintln(printDest, "Error:", err)
-		return 1
+		panic(err)
 	}
 
 	contentRoot, address, baseUrl := ParseArgs(remainingArgs)
@@ -59,9 +57,19 @@ func Main(args []string, printDest io.Writer) int {
 		panic(err)
 	}
 
+	siteFiles := os.DirFS(contentRoot)
+
+	// The rss dir arrives as the end user typed it. Main is the first place that knows both
+	// the content root and the site's fs.FS, so it is the first place that can resolve it.
+	rssInfo.Dir, err = resolveRssDir(siteFiles, rssInfo.Dir, contentRoot)
+	if err != nil {
+		panic(err)
+	}
+
+	andrewServer := NewServer(siteFiles, address, baseUrl, *rssInfo)
+
 	fmt.Fprintf(printDest, "Serving from %s, listening on %s, serving on %s", contentRoot, address, baseUrl)
 
-	andrewServer := NewServer(contentRoot, os.DirFS(contentRoot), address, baseUrl, *rssInfo)
 	err = ListenAndServe(andrewServer, certInfo)
 	if err != nil {
 		panic(err)
@@ -104,12 +112,7 @@ func ListenAndServe(andrew *Server, certInfo *CertInfo) error {
 // The args parameter contains the command-line arguments, and printDest
 // is where the help message is written if `-h` or `--help` is specified.
 //
-// Supported options:
-//   - -c, --cert: Path to the SSL certificate file. Must be used with `--privatekey`.
-//   - -p, --privatekey: Path to the private key file. Must be used with `--cert`.
-//   - -h, --help: Displays the help message and returns a specific error.
-//
-// If only one of `--cert` or `--privatekey` is provided, an error is returned.
+// Supported options are documented in the help message.
 //
 // Returns a CertInfo struct containing the SSL certificate and key paths, an RssInfo struct with info and description if provided,
 // the remaining arguments, and any error encountered.
@@ -175,10 +178,10 @@ func ParseOpts(args []string, printDest io.Writer) (*CertInfo, *RssInfo, []strin
 
 		case "-r", "--rssdir":
 			if i+1 < len(args) {
-				// rssdir is a path inside the content fs.FS, which rejects
-				// trailing slashes, so strip one if the user supplied it.
-				rssInfo.Dir = strings.TrimSuffix(args[i+1], "/")
+				rssInfo.Dir = args[i+1]
 				i++
+			} else {
+				return nil, nil, nil, errors.New("missing rss directory after " + arg)
 			}
 
 		case "-t", "--rsstitle":

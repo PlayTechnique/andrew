@@ -2,6 +2,7 @@ package andrew
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -11,12 +12,20 @@ import (
 )
 
 func (a Server) ServeRssFeed(w http.ResponseWriter, r *http.Request) {
-	rss := GenerateRssFeed(a.SiteFiles, a.ContentRoot, a.BaseUrl, a.RssInfo)
+	rss, err := GenerateRssFeed(a.SiteFiles, a.BaseUrl, a.RssInfo)
+	if err != nil {
+		message, status := CheckPageErrors(err)
+		w.WriteHeader(status)
+		fmt.Fprint(w, message)
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
-	_, err := fmt.Fprint(w, string(rss))
-	if err != nil {
-		panic(err)
+
+	// The response is already on the wire, so there is no status left to set. A client that
+	// hangs up mid-write is routine rather than exceptional, so log it and move on.
+	if _, err := fmt.Fprint(w, string(rss)); err != nil {
+		slog.Info("could not finish writing the rss feed", "error", err)
 	}
 }
 
@@ -30,10 +39,9 @@ func (a Server) ServeRssFeed(w http.ResponseWriter, r *http.Request) {
 // what I'm including in these items and the channel.
 // Args:
 // 1. an fs.FS which contains your full site
-// 2. the path which your site is fed from. This is used in some path munging against the RSS directory.
-// 3. your baseURl, which is interpolated into the rss feed.
-// 4. an RssInfo structure, which contains some information that is needed by your RSS feed.
-func GenerateRssFeed(f fs.FS, contentRoot string, baseUrl string, rss RssInfo) []byte {
+// 2. your baseURl, which is interpolated into the rss feed.
+// 3. an RssInfo structure, which contains some information that is needed by your RSS feed.
+func GenerateRssFeed(f fs.FS, baseUrl string, rss RssInfo) ([]byte, error) {
 	buff := new(bytes.Buffer)
 	rssUrl := baseUrl + "/rss.xml"
 
@@ -46,12 +54,12 @@ func GenerateRssFeed(f fs.FS, contentRoot string, baseUrl string, rss RssInfo) [
 </rss>
 `
 	)
-	rssDir := normaliseRssDir(rss.Dir, contentRoot)
-	pages, err := getPages(f, rssDir)
-
+	pages, err := pagesInDir(f, rss.Dir)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+
+	pages = SortPagesByDate(pages)
 
 	fmt.Fprint(buff, header)
 
@@ -71,69 +79,21 @@ func GenerateRssFeed(f fs.FS, contentRoot string, baseUrl string, rss RssInfo) [
 
 	fmt.Fprint(buff, footer)
 
-	return buff.Bytes()
+	return buff.Bytes(), nil
 }
 
-func getPages(siteFiles fs.FS, startDir string) ([]Page, error) {
-	pages := []Page{}
+// resolveRssDir turns the rss directory as the end user typed it on the command line into a
+// path inside siteFiles, and confirms that directory is really there.
+// Resolving at startup means a typo'd --rssdir fails immediately, rather than serving a
+// broken feed later on.
+func resolveRssDir(siteFiles fs.FS, rssDir string, contentRoot string) (string, error) {
+	rssDir = normaliseRssDir(rssDir, contentRoot)
 
-	slog.Debug("getPages", "startDir", startDir)
+	if err := checkRssDirExists(siteFiles, rssDir, contentRoot); err != nil {
+		return "", err
+	}
 
-	err := fs.WalkDir(siteFiles, startDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// We don't list index files in our collection of siblings and children, because I don't
-		// want a link back to a page that contains only links.
-		if strings.Contains(path, "index.html") {
-			return nil
-		}
-
-		// If the file we're considering isn't an html file, let's move on with our day.
-		if !strings.Contains(path, "html") {
-			return nil
-		}
-
-		pageContent, err := fs.ReadFile(siteFiles, path)
-		if err != nil {
-			return err
-		}
-
-		// Render partials before extracting metadata, so meta tags inside partials are found
-		renderedContent, err := renderPartialFiles(siteFiles, path, pageContent)
-		if err != nil {
-			return err
-		}
-
-		title, err := getTitle(path, renderedContent)
-		if err != nil {
-			return err
-		}
-
-		publishTime, err := getPublishTime(siteFiles, path, renderedContent)
-		if err != nil {
-			return err
-		}
-
-		// links require a URL relative to the page we're discovering siblings from, not from
-		// the root of the file system
-		s_page := Page{
-			Title:       title,
-			UrlPath:     path,
-			Content:     string(renderedContent),
-			PublishTime: publishTime,
-		}
-
-		pages = append(pages, s_page)
-
-		return nil
-	})
-
-	pages = SortPagesByDate(pages)
-
-	return pages, err
-
+	return rssDir, nil
 }
 
 // The rss directory is always a directory inside SiteFiles. But the end-user might supply it as an absolute path.
@@ -153,4 +113,23 @@ func normaliseRssDir(rd string, contentRoot string) string {
 		rd = "."
 	}
 	return rd
+}
+
+// checkRssDirExists confirms that rssDir, which must already have been through
+// normaliseRssDir, is a directory that siteFiles actually contains. contentRoot is only
+// here so that a missing directory can say where we went looking for it.
+func checkRssDirExists(siteFiles fs.FS, rssDir string, contentRoot string) error {
+	rssDirInfo, err := fs.Stat(siteFiles, rssDir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("rss directory %q must be a directory inside the content root %s: %w", rssDir, contentRoot, err)
+		}
+		return fmt.Errorf("rss directory %q: %w", rssDir, err)
+	}
+
+	if !rssDirInfo.IsDir() {
+		return fmt.Errorf("rss directory %q is not a directory", rssDir)
+	}
+
+	return nil
 }

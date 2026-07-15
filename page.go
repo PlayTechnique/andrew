@@ -154,6 +154,69 @@ func getPublishTime(siteFiles fs.FS, pagePath string, pageContent []byte) (time.
 	return publishTime, nil
 }
 
+// pagesInDir walks startDir and returns a Page for every html page at or beneath it, with
+// each UrlPath relative to the root of siteFiles, unsorted.
+func pagesInDir(siteFiles fs.FS, startDir string) ([]Page, error) {
+	pages := []Page{}
+
+	slog.Debug("pagesInDir", "startDir", startDir)
+
+	err := fs.WalkDir(siteFiles, startDir, func(pagePath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		slog.Debug("pagesInDir", "currentPath", pagePath)
+
+		// We don't list index files in our collection of pages, because I don't
+		// want a link back to a page that contains only links.
+		if d.Name() == "index.html" {
+			return nil
+		}
+
+		// If the file we're considering isn't an html file, let's move on with our day.
+		// This also skips every directory, whose name has no .html extension.
+		if path.Ext(d.Name()) != ".html" {
+			return nil
+		}
+
+		pageContent, err := fs.ReadFile(siteFiles, pagePath)
+		if err != nil {
+			return err
+		}
+
+		// Render partials before extracting metadata, so meta tags inside partials are found
+		renderedContent, err := renderPartialFiles(siteFiles, pagePath, pageContent)
+		if err != nil {
+			// One page with a broken partial reference shouldn't take out every page
+			// around it. The page itself will still 404 when directly requested.
+			slog.Error("skipping page with broken partial reference", "path", pagePath, "error", err)
+			return nil
+		}
+
+		title, err := getTitle(pagePath, renderedContent)
+		if err != nil {
+			return err
+		}
+
+		publishTime, err := getPublishTime(siteFiles, pagePath, renderedContent)
+		if err != nil {
+			return err
+		}
+
+		pages = append(pages, Page{
+			Title:       title,
+			UrlPath:     pagePath,
+			Content:     string(renderedContent),
+			PublishTime: publishTime,
+		})
+
+		return nil
+	})
+
+	return pages, err
+}
+
 // SetUrlPath updates the UrlPath on a pre-existing Page.
 func SetUrlPath(page Page, urlPath string) Page {
 	page.UrlPath = urlPath

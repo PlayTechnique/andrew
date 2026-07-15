@@ -32,7 +32,7 @@ func TestServerRespondsStatusOKForExistingPage(t *testing.T) {
 </body>
 `)
 
-	s := newTestAndrewServer(t, ".",fstest.MapFS{
+	s := newTestAndrewServer(t, fstest.MapFS{
 		"index.html": &fstest.MapFile{
 			Data: expected,
 		},
@@ -58,7 +58,7 @@ func TestServerRespondsStatusOKForExistingPage(t *testing.T) {
 func TestGetForNonExistentPageGeneratesStatusNotFound(t *testing.T) {
 	t.Parallel()
 
-	s := newTestAndrewServer(t, ".",fstest.MapFS{})
+	s := newTestAndrewServer(t, fstest.MapFS{})
 
 	resp, err := http.Get(s.BaseUrl + "/page.html")
 	if err != nil {
@@ -81,7 +81,7 @@ func TestGetForUnreadablePageGeneratesStatusForbidden(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := newTestAndrewServer(t, ".",os.DirFS(contentRoot))
+	s := newTestAndrewServer(t, os.DirFS(contentRoot))
 
 	resp, err := http.Get(s.BaseUrl + "/index.html")
 	if err != nil {
@@ -105,7 +105,7 @@ func Test500ErrorForUnforeseenErrorCase(t *testing.T) {
 func TestGetSitemapReturnsTheSitemap(t *testing.T) {
 	t.Parallel()
 
-	s := newTestAndrewServer(t, ".",fstest.MapFS{})
+	s := newTestAndrewServer(t, fstest.MapFS{})
 
 	resp, err := http.Get(s.BaseUrl + "/sitemap.xml")
 	if err != nil {
@@ -143,7 +143,7 @@ func TestGettingADirectoryDefaultsToIndexHtml(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := newTestAndrewServer(t, ".",os.DirFS(contentRoot))
+	s := newTestAndrewServer(t, os.DirFS(contentRoot))
 
 	resp, err := http.Get(s.BaseUrl + "/pages/")
 	if err != nil {
@@ -167,7 +167,7 @@ func TestServerServesRequestedPage(t *testing.T) {
 		"page.html": &fstest.MapFile{Data: []byte("some text")},
 	}
 
-	s := newTestAndrewServer(t, ".",contentRoot)
+	s := newTestAndrewServer(t, contentRoot)
 	t.Logf("Server running on %s\n", s.BaseUrl)
 
 	resp, err := http.Get(s.BaseUrl + "/page.html")
@@ -201,7 +201,7 @@ func TestServerServesIndexPageByDefault(t *testing.T) {
 		"index.html": &fstest.MapFile{Data: expected},
 	}
 
-	s := newTestAndrewServer(t, ".",contentRoot)
+	s := newTestAndrewServer(t, contentRoot)
 
 	resp, err := http.Get(s.BaseUrl)
 	if err != nil {
@@ -243,7 +243,7 @@ func TestCorrectMimeTypeIsSetForKnownFileTypes(t *testing.T) {
 		"page.ico":  {},
 	}
 
-	s := newTestAndrewServer(t, ".",contentRoot)
+	s := newTestAndrewServer(t, contentRoot)
 
 	for page := range contentRoot {
 		resp, err := http.Get(s.BaseUrl + "/" + page)
@@ -322,7 +322,7 @@ func TestArticlesInAndrewTableOfContentsAreDefaultSortedByModTime(t *testing.T) 
 
 // newTestAndrewServer starts an andrew and returns the localhost url that you can run http gets against
 // to retrieve data from that server
-func newTestAndrewServer(t *testing.T, contentRoot string, siteFiles fs.FS) *andrew.Server {
+func newTestAndrewServer(t *testing.T, siteFiles fs.FS) *andrew.Server {
 	t.Helper()
 
 	// Listen on IPv4 localhost on any available port
@@ -331,12 +331,14 @@ func newTestAndrewServer(t *testing.T, contentRoot string, siteFiles fs.FS) *and
 		t.Fatal(err)
 	}
 
-	rssInfo := andrew.RssInfo{Title: "exampleTitle", Description: "exampleDescription"}
+	// Dir is set explicitly because NewServer takes an already-resolved RssInfo; it will not
+	// turn an empty Dir into the root of the site for us.
+	rssInfo := andrew.RssInfo{Title: "exampleTitle", Description: "exampleDescription", Dir: "."}
 
 	addr := listener.Addr().String()
 	listener.Close()
 
-	server := andrew.NewServer(contentRoot, siteFiles, addr, "http://"+addr, rssInfo)
+	server := andrew.NewServer(siteFiles, addr, "http://"+addr, rssInfo)
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -376,7 +378,7 @@ func TestServeLogsRequestMetadata(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(original) })
 
-	s := newTestAndrewServer(t, ".",fstest.MapFS{
+	s := newTestAndrewServer(t, fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte("<body></body>")},
 	})
 
@@ -413,7 +415,7 @@ func TestServeLogsXForwardedFor(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(original) })
 
-	s := newTestAndrewServer(t, ".",fstest.MapFS{
+	s := newTestAndrewServer(t, fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte("<body></body>")},
 	})
 
@@ -488,5 +490,37 @@ func TestGetSiblingsAndChildrenHonorsPublishTimeFromPartial(t *testing.T) {
 	want := time.Date(2024, 1, 28, 0, 0, 0, 0, time.UTC)
 	if !post.PublishTime.Equal(want) {
 		t.Fatalf("PublishTime = %v, want %v (meta tag is inside a partial; GetSiblingsAndChildren is falling back to mtime)", post.PublishTime, want)
+	}
+}
+
+// TestGetSiblingsAndChildrenFiltersHtmlFilesCorrectly validates which files count as pages.
+// Every case here comes from small bugs I found while rearchitecting how pages are gathered, for example
+// "reindex.html" should be returned, even though it contains "index.html", and both "htmlguide.txt" and the
+// directory "html" contain "html".
+func TestGetSiblingsAndChildrenFiltersHtmlFilesCorrectly(t *testing.T) {
+	t.Parallel()
+
+	server := andrew.Server{SiteFiles: fstest.MapFS{
+		"index.html":        {Data: []byte("<title>Home</title>")},
+		"page.html":         {Data: []byte("<title>Page</title>")},
+		"blog/index.html":   {Data: []byte("<title>Blog</title>")},
+		"blog/reindex.html": {Data: []byte("<title>Reindex</title>")},
+		"htmlguide.txt":     {Data: []byte("prose about html")},
+		"html/notes.txt":    {Data: []byte("more prose")},
+	}}
+
+	siblings, err := server.GetSiblingsAndChildren("index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := []string{}
+	for _, sibling := range siblings {
+		got = append(got, sibling.UrlPath)
+	}
+
+	want := []string{"blog/reindex.html", "page.html"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Error(diff)
 	}
 }
