@@ -96,18 +96,18 @@ func (s Server) NewPage(pageUrl string) (Page, error) {
 
 	page := Page{Content: string(renderedPageContent), PublishTime: pagePublishTime, Title: pageTitle, UrlPath: pageUrl}
 
-	siblings, err := s.GetSiblingsAndChildren(page.UrlPath)
-
-	if err != nil {
-		return page, err
-	}
-
-	orderedSiblings := SortPagesByDate(siblings)
-
 	// Only execute templates for html files, not pngs or other kinds of file.
 	// This is so the template rendering engine doesn't receive a binary blob, which
 	// makes it panic.
 	if strings.HasSuffix(page.UrlPath, ".html") {
+		siblings, err := s.GetSiblingsAndChildren(page.UrlPath)
+
+		if err != nil {
+			return page, err
+		}
+
+		orderedSiblings := SortPagesByDate(siblings)
+
 		contentWithContents, err := RenderTableOfContents(orderedSiblings, page)
 		if err != nil {
 			return Page{}, err
