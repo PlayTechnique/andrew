@@ -151,7 +151,7 @@ func (a Server) Serve(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		message, status := CheckPageErrors(err)
 		w.WriteHeader(status)
-		fmt.Fprint(w, message)
+		slog.Info("Error:", "message", message)
 		allRequestsErrorsAggregatedCounter.WithLabelValues("Failed Page", strconv.Itoa(status)).Inc()
 		return
 	}
