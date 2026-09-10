@@ -315,9 +315,9 @@ func renderPartialFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 	partialParser := partialParser()
 	matches := partialParser.regex.FindAllStringSubmatch(string(pageContent), -1)
 
-	// no .AndrewPartialFile directive to parse. Good to bail.
+	// no .AndrewPartialFile keyword to parse. Good to bail.
 	if matches == nil {
-		slog.Debug("renderPartialFiles", "AndrewPartialDirectiveFound", "false", "pageContent", pageContent)
+		slog.Debug("renderPartialFiles", "AndrewPartialFileFound", "false", "StartingFile", pagePath)
 		return pageContent, nil
 	}
 
@@ -332,12 +332,9 @@ func renderPartialFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 
 	for _, m := range matches {
 		partialToFind := m[fileIndex]
-		// It's pretty common to put ' and " in the value of the k/v pair in the partial directive.
-		// Cleaning them up is a better experience than failing the parsing.
-		dataTagsToParse := m[dataIndex]
 
 		// We always need to know the path to the required partial file, so that we
-		// can read in the partial file to insert it into the web page in place of the {{ }} directive.
+		// can read in the partial file to insert it into the web page in place of the {{ }} partial file statement.
 		partialFile, err := findPartialFile(siteFiles, pagePath, partialToFind)
 
 		if err != nil {
@@ -354,6 +351,7 @@ func renderPartialFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 
 		// The tag format {{ .AndrewPartialFile spaceman=david }} requires parsing out the key/value pairs.
 		// parsePartialDataTags returns an empty map if there's no data, which is fine for template execution.
+		dataTagsToParse := m[dataIndex]
 		tags := parsePartialDataTags(dataTagsToParse)
 
 		// Always execute template - works with empty tags (just returns raw content)
