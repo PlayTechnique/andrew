@@ -191,6 +191,8 @@ func (a Server) serve(w http.ResponseWriter, page Page) {
 		w.Header().Set("Content-Type", "image/webp")
 	case ".ico":
 		w.Header().Set("Content-Type", "image/x-icon")
+	case ".svg":
+		w.Header().Set("Content-Type", "image/svg+xml")
 	}
 
 	w.WriteHeader(200)
