@@ -31,6 +31,11 @@ var (
 )
 
 // partialParser returns the singleton partialParser instance.
+// The partial include statemenet {{ .AndrewPartialFile }} can have arguments.
+// The actual statement is returned in teh first part of the parser's match, for
+// identifying the right partial file name to include
+// The arguments to the partial file name (e.g. date=123) are stored in
+// the PartialFileData section.
 func partialParser() *partialsParser {
 	parserOnce.Do(func() {
 		parserInstance = &partialsParser{
@@ -100,20 +105,22 @@ func (s Server) NewPage(pageUrl string) (Page, error) {
 	// This is so the template rendering engine doesn't receive a binary blob, which
 	// makes it panic.
 	if strings.HasSuffix(page.UrlPath, ".html") {
-		siblings, err := s.GetSiblingsAndChildren(page.UrlPath)
+		if strings.Contains(page.Content, "{{ .AndrewTableOfContents }}") || strings.Contains(page.Content, "{{ .AndrewTableOfContentsWithDirectories }}") {
+			siblings, err := s.GetSiblingsAndChildren(page.UrlPath)
 
-		if err != nil {
-			return page, err
+			if err != nil {
+				return page, err
+			}
+
+			orderedSiblings := SortPagesByDate(siblings)
+
+			contentWithContents, err := RenderTableOfContents(orderedSiblings, page)
+			if err != nil {
+				return Page{}, err
+			}
+
+			page.Content = string(contentWithContents)
 		}
-
-		orderedSiblings := SortPagesByDate(siblings)
-
-		contentWithContents, err := RenderTableOfContents(orderedSiblings, page)
-		if err != nil {
-			return Page{}, err
-		}
-
-		page.Content = string(contentWithContents)
 	}
 
 	return page, nil
@@ -324,14 +331,15 @@ func renderPartialFiles(siteFiles fs.FS, pagePath string, pageContent []byte) ([
 	// Each match in matches has 2 components:
 	// match[0] == the entire matched string.
 	// match[n > 0] == the contents of the Nth capture group.
-	fileIndex := partialParser.regex.SubexpIndex("AndrewPartialFile")     // returns 1
-	dataIndex := partialParser.regex.SubexpIndex("AndrewPartialFileData") // returns 2
+	fileIndex := partialParser.regex.SubexpIndex("AndrewPartialFile")
+	dataIndex := partialParser.regex.SubexpIndex("AndrewPartialFileData")
 
 	var templateBuffer bytes.Buffer
 	var partialContent string
 
 	for _, m := range matches {
 		partialToFind := m[fileIndex]
+		slog.Debug("renderPartialFiles", "Finding partial", partialToFind)
 
 		// We always need to know the path to the required partial file, so that we
 		// can read in the partial file to insert it into the web page in place of the {{ }} partial file statement.
@@ -471,7 +479,7 @@ func parsePartialDataTags(data string) map[string]string {
 	return tags
 }
 
-// findPartialFile will upwards walk from the directory containing partialName upwards in the tree.
+// findPartialFile will upwards walk from the directory containing partialName upwards in the tree to the site root.
 // If the partial file is found in the same file as the pagePath, the directory containing the
 // partial file is "."; inside an fs.FS "." is only allowed to refer to the root directory, not
 // the pwd, but fortunately path.Join takes care of that issue for us.
@@ -488,7 +496,7 @@ func findPartialFile(siteFiles fs.FS, pagePath string, partialName string) (stri
 
 		_, err := fs.Stat(siteFiles, candidate)
 
-		// If the candidate is a real file, we're done.
+		// If the candidate is found, we're done.
 		if err == nil {
 			slog.Debug("findPartialFile", "foundFile", candidate)
 

@@ -242,7 +242,7 @@ roflcopter
 // Verify that the regular expression used for finding Partials is working well.
 // Pulling these into their own test is completely worth it; the integration style
 // tests don't get this specific easily.
-func TestPartialREPattern(t *testing.T) {
+func TestThePartialIncludeStringIsMatchedByThePartialParserRegex(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       string
